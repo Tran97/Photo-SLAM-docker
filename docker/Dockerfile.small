@@ -1,0 +1,86 @@
+# Stage 1: Use a pre-built OpenCV image with CUDA support
+FROM opencv/cuda:11.8.0-ubuntu22.04 as opencv_base
+
+# Stage 2: Final Image
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
+
+#SHELL ["/bin/bash", "-c"]
+
+# Copy only the necessary OpenCV artifacts from the build stage
+#COPY --from=opencv_base /usr/local /usr/local
+COPY --from=opencv_base /usr/local/lib /usr/local/lib
+COPY --from=opencv_base /usr/local/include /usr/local/include
+COPY --from=opencv_base /usr/local/bin /usr/local/bin
+
+# Install only runtime dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    zip \
+    wget \
+    libeigen3-dev \
+    libboost-all-dev \
+    libjsoncpp-dev \
+    libopengl-dev \
+    mesa-utils \
+    libglfw3-dev \
+    libglm-dev \
+    python3-pip \
+    python3-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libswresample-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# libtorch
+RUN cd / && \
+    wget https://download.pytorch.org/libtorch/cu118/libtorch-cxx11-abi-shared-with-deps-2.0.1%2Bcu118.zip -O libtorch-cu118.zip && \
+    unzip libtorch-cu118.zip && rm libtorch-cu118.zip
+ENV Torch_DIR /libtorch/share/cmake/Torch
+
+
+# Install CMake
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-Linux-x86_64.sh -O /cmake-3.22.1.sh && \
+    chmod +x /cmake-3.22.1.sh && \
+    /cmake-3.22.1.sh --skip-license --prefix=/usr/local
+
+
+COPY . /dev_ws/Photo-SLAM 
+
+# Dev container arguments
+ARG USERNAME=devuser
+ARG UID=2000
+ARG GID=${UID}
+
+# Install extra tools for development
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    sudo \
+    clangd \
+    gdb \
+    gdbserver \
+    && apt clean && rm -rf /var/lib/apt/lists/*
+
+# Create the sudoers directory
+RUN mkdir -p /etc/sudoers.d
+
+# Create new user and home directory
+RUN groupadd --gid $GID $USERNAME \
+    && useradd --uid ${GID} --gid ${UID} --create-home ${USERNAME} \
+    && echo ${USERNAME} ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/${USERNAME} \
+    && chmod 0440 /etc/sudoers.d/${USERNAME} \
+    && mkdir -p /home/${USERNAME} \
+    && chown -R ${UID}:${GID} /home/${USERNAME} \
+    && chown -R ${UID}:${GID} /dev_ws
+
+# Set the user
+USER ${USERNAME}
+
+WORKDIR /dev_ws/Photo-SLAM
+# Build the project
+RUN ./build.sh

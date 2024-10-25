@@ -1,0 +1,49 @@
+version: "3.9"
+services:
+  # Base image containing dependencies.
+  dev:
+    image: photo_slam:dev
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile
+      args:
+        - UID=${UID:-2000}
+        - GID=${UID:-2000}
+        - USERNAME=${USERNAME:-devuser}
+      target: dev
+    # Interactive shell
+    stdin_open: true
+    tty: true
+    # Networking and IPC for ROS 2
+    network_mode: host  
+    ipc: host
+    # Needed to display graphical applications
+    environment:
+      # Allows graphical programs in the container.
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - QT_QPA_PLATFORM=xcb \
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    runtime: nvidia
+    privileged: true
+    volumes:
+      # Allows graphical programs in the container.
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${XAUTHORITY:-$HOME/.Xauthority}:/root/.Xauthority
+      - ../src:/dev_ws/Photo-SLAM/src:rw
+      - ../include:/dev_ws/Photo-SLAM/include:rw
+      - ../CMakeLists.txt:/dev_ws/Photo-SLAM/CMakeLists.txt:rw
+      - ../scripts:/dev_ws/Photo-SLAM/scripts:rw
+      - ../examples:/dev_ws/Photo-SLAM/examples:rw
+      - ../../photo_slam/Replica:/dev_ws/Photo-SLAM/data/Replica
+      - ../../photo_slam//rgbd_dataset_freiburg2_xyz:/dev_ws/Photo-SLAM/data/rgbd_dataset_freiburg2_xyz
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    command: sleep infinity

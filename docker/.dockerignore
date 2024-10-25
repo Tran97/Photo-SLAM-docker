@@ -1,0 +1,27 @@
+# Version control
+.git
+.gitignore
+
+# License
+LICENSE
+LICENSE.md
+
+# Development files
+*.log
+.env
+.env.*
+.DS_Store
+
+# Build directories
+#build
+dist
+coverage
+
+# Docker files themselves
+docker/
+
+# Development tools
+.vscode
+.idea
+*.swp
+.devcontainer/
