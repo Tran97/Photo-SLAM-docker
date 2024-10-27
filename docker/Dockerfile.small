@@ -12,11 +12,26 @@ COPY --from=opencv_base /usr/local/lib /usr/local/lib
 COPY --from=opencv_base /usr/local/include /usr/local/include
 COPY --from=opencv_base /usr/local/bin /usr/local/bin
 
-# Install only runtime dependencies
 RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    wget
+
+# gcc
+RUN add-apt-repository ppa:ubuntu-toolchain-r/test -y
+
+RUN apt-get install -y gcc-11 g++-11
+
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 100
+
+
+# dependency
+RUN apt-get install -y \
+    git \
+    build-essential \
+    sudo \
     curl \
     zip \
-    wget \
     libeigen3-dev \
     libboost-all-dev \
     libjsoncpp-dev \
@@ -50,6 +65,10 @@ RUN wget https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1
 
 
 COPY . /dev_ws/Photo-SLAM 
+WORKDIR /dev_ws/Photo-SLAM
+# Build the project
+RUN ./build.sh
+
 
 # Dev container arguments
 ARG USERNAME=devuser
@@ -80,7 +99,3 @@ RUN groupadd --gid $GID $USERNAME \
 
 # Set the user
 USER ${USERNAME}
-
-WORKDIR /dev_ws/Photo-SLAM
-# Build the project
-RUN ./build.sh

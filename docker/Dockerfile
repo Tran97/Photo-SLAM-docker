@@ -19,6 +19,8 @@ RUN apt-get install -y \
     git \
     build-essential \
     sudo \
+    curl \
+    zip \
     libeigen3-dev \
     libboost-all-dev \
     libjsoncpp-dev \
@@ -31,8 +33,6 @@ RUN apt-get install -y \
     libjpeg-dev \
     libpng-dev \
     libtiff-dev \
-    curl \
-    zip \
     libavcodec-dev \
     libavformat-dev \
     libswscale-dev \
@@ -117,7 +117,4 @@ RUN groupadd --gid $GID $USERNAME \
 
 # Set the user
 USER ${USERNAME}
-
-#RUN apt-get update && apt-get install -y libgl1-mesa-glx libglvnd0
-#RUN apt-get install -y libgl1-mesa-dri
 
