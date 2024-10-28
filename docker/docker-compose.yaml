@@ -6,7 +6,7 @@ services:
     container_name: photo_slam_dev
     build:
       context: ..
-      dockerfile: ./docker/Dockerfile
+      dockerfile: ./docker/Dockerfile.small
       args:
         - UID=${UID:-2000}
         - GID=${UID:-2000}
