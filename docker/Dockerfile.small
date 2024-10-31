@@ -1,8 +1,8 @@
 # Stage 1: Use a pre-built OpenCV image with CUDA support
-FROM opencv/cuda:11.8.0-ubuntu22.04 as opencv_base
+FROM t4dashi/opencv-cuda:11.8.0-ubuntu22.04 AS opencv_base
 
 # Stage 2: Final Image
-FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04 AS dev
 
 #SHELL ["/bin/bash", "-c"]
 
@@ -85,20 +85,51 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gdbserver \
     && apt clean && rm -rf /var/lib/apt/lists/*
 
-# Deps for evaluation toolkit
-RUN pip install \
-    torch==2.1.0+cu118 \
-    torchvision==0.16.2+cu118 \
-    torchaudio==2.1.0+cu118 \
-    -f https://download.pytorch.org/whl/torch_stable.html \
-    evo \
-    numpy \
-    scipy \
-    scikit-image \
-    lpips \
-    pillow \
-    tqdm \
-    plyfile
+## Install required Python packages
+#RUN pip install --upgrade pip && \
+#pip install \
+#torch==2.1.2+cu118 \
+#torchvision==0.16.2+cu118 \
+#torchaudio==2.1.2+cu118 \
+#-f https://download.pytorch.org/whl/torch_stable.html \
+#evo \
+#numpy \
+#scipy \
+#scikit-image \
+#lpips \
+#pillow \
+#tqdm \
+#plyfile
+
+## Install submodules for rendering
+#RUN pip install submodules/simple-knn/ \
+#submodules/diff-gaussian-rasterization/
+## Install submodules for rendering
+#RUN pip install submodules/simple-knn/
+#RUN pip install submodules/diff-gaussian-rasterization/
+
+# Install conda
+RUN apt-get update && apt-get install -y \
+    wget \
+    && wget -qO- https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh | bash -s -- -b -p /opt/conda \
+    && /opt/conda/bin/conda install -y conda \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add conda to PATH
+ENV PATH=/opt/conda/bin:$PATH
+
+# Install compatible PyTorch and torchvision
+RUN conda install -y pytorch==2.1.2 torchvision==0.16.2 pytorch-cuda=11.8 -c pytorch -c nvidia
+
+# Clone the Photo-SLAM-eval repository
+RUN git clone https://github.com/HuajianUP/Photo-SLAM-eval.git
+
+# Install required Python packages
+RUN pip install evo numpy scipy scikit-image lpips pillow tqdm plyfile
+
+# Install submodules for rendering
+RUN pip install /Photo-SLAM-eval/submodules/simple-knn/ \
+    /Photo-SLAM-eval/submodules/diff-gaussian-rasterization/
 
 # Create the sudoers directory
 RUN mkdir -p /etc/sudoers.d
