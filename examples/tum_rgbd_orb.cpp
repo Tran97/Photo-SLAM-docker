@@ -1,22 +1,3 @@
-/**
- * This file is part of Photo-SLAM
- *
- * Copyright (C) 2023-2024 Longwei Li and Hui Cheng, Sun Yat-sen University.
- * Copyright (C) 2023-2024 Huajian Huang and Sai-Kit Yeung, Hong Kong University of Science and Technology.
- *
- * Photo-SLAM is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
- * License as published by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Photo-SLAM is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even
- * the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with Photo-SLAM.
- * If not, see <http://www.gnu.org/licenses/>.
- */
-
-#include <torch/torch.h>
 
 #include <iostream>
 #include <algorithm>
@@ -31,17 +12,15 @@
 #include <opencv2/core/core.hpp>
 
 #include "ORB-SLAM3/include/System.h"
-#include "include/gaussian_mapper.h"
-#include "viewer/imgui_viewer.h"
 
 void LoadImages(const std::string &strAssociationFilename, std::vector<std::string> &vstrImageFilenamesRGB,
                 std::vector<std::string> &vstrImageFilenamesD, std::vector<double> &vTimestamps);
 void saveTrackingTime(std::vector<float> &vTimesTrack, const std::string &strSavePath);
-void saveGpuPeakMemoryUsage(std::filesystem::path pathSave);
+void saveTotalTime(const double &time, const int nImage, const std::string &strSavePath);
 
 int main(int argc, char **argv)
 {
-    if (argc != 7 && argc != 8)
+    if (argc != 8 && argc != 9)
     {
         std::cerr << std::endl
                   << "Usage: " << argv[0]
@@ -52,6 +31,7 @@ int main(int argc, char **argv)
                   << " path_to_association"                  /*5*/
                   << " path_to_trajectory_output_directory/" /*6*/
                   << " (optional)no_viewer"                  /*7*/
+                  << " traj_run"                             /*8*/
                   << std::endl;
         return 1;
     }
@@ -86,40 +66,12 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    // Device
-    torch::DeviceType device_type;
-    if (torch::cuda::is_available())
-    {
-        std::cout << "CUDA available! Training on GPU." << std::endl;
-        device_type = torch::kCUDA;
-    }
-    else
-    {
-        std::cout << "Training on CPU." << std::endl;
-        device_type = torch::kCPU;
-    }
-
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     std::shared_ptr<ORB_SLAM3::System> pSLAM =
         std::make_shared<ORB_SLAM3::System>(
             argv[1], argv[2], ORB_SLAM3::System::RGBD);
     float imageScale = pSLAM->GetImageScale();
 
-    // Create GaussianMapper
-    std::filesystem::path gaussian_cfg_path(argv[3]);
-    std::shared_ptr<GaussianMapper> pGausMapper =
-        std::make_shared<GaussianMapper>(
-            pSLAM, gaussian_cfg_path, output_dir, 0, device_type);
-    std::thread training_thd(&GaussianMapper::run, pGausMapper.get());
-
-    // Create Gaussian Viewer
-    std::thread viewer_thd;
-    std::shared_ptr<ImGuiViewer> pViewer;
-    if (use_viewer)
-    {
-        pViewer = std::make_shared<ImGuiViewer>(pSLAM, pGausMapper);
-        viewer_thd = std::thread(&ImGuiViewer::run, pViewer.get());
-    }
 
     // Vector for tracking time statistics
     std::vector<float> vTimesTrack;
@@ -194,22 +146,10 @@ int main(int argc, char **argv)
 
     // Stop all threads
     pSLAM->Shutdown();
-    training_thd.join();
-    if (use_viewer)
-        viewer_thd.join();
-
-    // GPU peak usage
-    saveGpuPeakMemoryUsage(output_dir / "GpuPeakUsageMB.txt");
-
-    // Tracking time statistics
-    saveTrackingTime(vTimesTrack, (output_dir / "TrackingTime.txt").string());
 
     // Save camera trajectory
-    pSLAM->SaveTrajectoryTUM((output_dir / "CameraTrajectory_TUM.txt").string());
-    pSLAM->SaveKeyFrameTrajectoryTUM((output_dir / "KeyFrameTrajectory_TUM.txt").string());
-    pSLAM->SaveTrajectoryEuRoC((output_dir / "CameraTrajectory_EuRoC.txt").string());
-    pSLAM->SaveKeyFrameTrajectoryEuRoC((output_dir / "KeyFrameTrajectory_EuRoC.txt").string());
-    pSLAM->SaveTrajectoryKITTI((output_dir / "CameraTrajectory_KITTI.txt").string());
+    saveTotalTime(timeTotal, nImages,(output_dir / "total_time.txt").string());
+    pSLAM->SaveTrajectoryTUM((output_dir / std::string(argv[8])).string());
 
     return 0;
 }
@@ -240,50 +180,20 @@ void LoadImages(const std::string &strAssociationFilename, std::vector<std::stri
     }
 }
 
-void saveTotalTime(const double &time, const std::string &strSavePath)
+void saveTotalTime(const double &time, const int nImages, const std::string &strSavePath)
 {
+    std::filesystem::path filePath(strSavePath);
+    std::filesystem::path dirPath = filePath.parent_path(); // Get the directory path
+    
+    // Ensure the directory exists
+    if (!std::filesystem::exists(dirPath)) {
+        std::filesystem::create_directories(dirPath); // Creates directory if it doesn't exist
+    } 
+
     std::ofstream out;
     out.open(strSavePath.c_str());
-
-    out.close();
-}
-
-void saveTrackingTime(std::vector<float> &vTimesTrack, const std::string &strSavePath)
-{
-    std::ofstream out;
-    out.open(strSavePath.c_str());
-    std::size_t nImages = vTimesTrack.size();
-    float totaltime = 0;
-    for (int ni = 0; ni < nImages; ni++)
-    {
-        out << std::fixed << std::setprecision(4)
-            << vTimesTrack[ni] << std::endl;
-        totaltime += vTimesTrack[ni];
-    }
-
-    // std::sort(vTimesTrack.begin(), vTimesTrack.end());
-    // out << "-------" << std::endl;
-    // out << std::fixed << std::setprecision(4)
-    //     << "median tracking time: " << vTimesTrack[nImages / 2] << std::endl;
-    // out << std::fixed << std::setprecision(4)
-    //     << "mean tracking time: " << totaltime / nImages << std::endl;
-
-    out.close();
-}
-
-void saveGpuPeakMemoryUsage(std::filesystem::path pathSave)
-{
-    namespace c10Alloc = c10::cuda::CUDACachingAllocator;
-    c10Alloc::DeviceStats mem_stats = c10Alloc::getDeviceStats(0);
-
-    c10Alloc::Stat reserved_bytes = mem_stats.reserved_bytes[static_cast<int>(c10Alloc::StatType::AGGREGATE)];
-    float max_reserved_MB = reserved_bytes.peak / (1024.0 * 1024.0);
-
-    c10Alloc::Stat alloc_bytes = mem_stats.allocated_bytes[static_cast<int>(c10Alloc::StatType::AGGREGATE)];
-    float max_alloc_MB = alloc_bytes.peak / (1024.0 * 1024.0);
-
-    std::ofstream out(pathSave);
-    out << "Peak reserved (MB): " << max_reserved_MB << std::endl;
-    out << "Peak allocated (MB): " << max_alloc_MB << std::endl;
+    out << "Total time: " << std::fixed << std::setprecision(4) << time << std::endl;
+    out << "Number of images: " << nImages << std::endl;
+    out << "FPS: " << std::fixed << std::setprecision(4) << nImages/time << std::endl;
     out.close();
 }

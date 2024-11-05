@@ -219,6 +219,14 @@ target_link_libraries(tum_rgbd
     gaussian_mapper
     ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)
 
+# TUM RGBD
+add_executable(tum_rgbd_orb examples/tum_rgbd_orb.cpp)
+target_link_libraries(tum_rgbd_orb
+    gaussian_viewer
+    gaussian_mapper
+    ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)
+
+
 # EuRoC Stereo
 add_executable(euroc_stereo examples/euroc_stereo.cpp)
 target_link_libraries(euroc_stereo
