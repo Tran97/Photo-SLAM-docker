@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 for i in 0 1 2
 do
 RESULT_PATH_FR1="../../results/orb/tum_rgbd_$i/rgbd_dataset_freiburg1_desk"
@@ -23,7 +22,7 @@ mkdir -p $RESULT_PATH_FR1_ROOM
     ../cfg/gaussian_mapper/RGB-D/TUM/tum_rgbd.yaml \
     ../../dataset/TUM/rgbd_dataset_freiburg1_room \
     ../cfg/ORB_SLAM3/RGB-D/TUM/associations/fr1_room.txt \
-    $RESULT_PATH_FR1_ROOM \
+    ../../results/orb/tum_rgbd_$i/rgbd_dataset_freiburg1_room \
     no_viewer \
     fr1_run_$i.txt
 
@@ -35,7 +34,7 @@ mkdir -p $RESULT_PATH_FR2
     ../cfg/gaussian_mapper/RGB-D/TUM/tum_rgbd.yaml \
     ../../dataset/TUM/rgbd_dataset_freiburg2_xyz \
     ../cfg/ORB_SLAM3/RGB-D/TUM/associations/tum_freiburg2_xyz.txt \
-    $RESULT_PATH_FR2 \
+    ../../results/orb/tum_rgbd_$i/rgbd_dataset_freiburg2_xyz \
     no_viewer \
     fr1_run_$i.txt
 
@@ -47,7 +46,7 @@ mkdir -p $RESULT_PATH_FR3
     ../cfg/gaussian_mapper/RGB-D/TUM/tum_rgbd.yaml \
     ../../dataset/TUM/rgbd_dataset_freiburg3_long_office_household \
     ../cfg/ORB_SLAM3/RGB-D/TUM/associations/tum_freiburg3_long_office_household.txt \
-    $RESULT_PATH_FR3 \
+    ../../results/orb/tum_rgbd_$i/rgbd_dataset_freiburg3_long_office_household \
     no_viewer \
     fr3_run_$i.txt
 done
