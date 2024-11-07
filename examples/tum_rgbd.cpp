@@ -41,7 +41,7 @@ void saveGpuPeakMemoryUsage(std::filesystem::path pathSave);
 
 int main(int argc, char **argv)
 {
-    if (argc != 7 && argc != 8)
+    if (argc != 8 && argc != 9)
     {
         std::cerr << std::endl
                   << "Usage: " << argv[0]
@@ -51,13 +51,14 @@ int main(int argc, char **argv)
                   << " path_to_sequence"                     /*4*/
                   << " path_to_association"                  /*5*/
                   << " path_to_trajectory_output_directory/" /*6*/
-                  << " (optional)no_viewer"                  /*7*/
+                  << " index_run"                            /*7*/
+                  << " (optional)no_viewer"                  /*8*/
                   << std::endl;
         return 1;
     }
     bool use_viewer = true;
     if (argc == 8)
-        use_viewer = (std::string(argv[7]) == "no_viewer" ? false : true);
+        use_viewer = (std::string(argv[8]) == "no_viewer" ? false : true);
 
     std::string output_directory = std::string(argv[6]);
     if (output_directory.back() != '/')
@@ -199,17 +200,15 @@ int main(int argc, char **argv)
         viewer_thd.join();
 
     // GPU peak usage
-    saveGpuPeakMemoryUsage(output_dir / "GpuPeakUsageMB.txt");
+    //saveGpuPeakMemoryUsage(output_dir / "GpuPeakUsageMB.txt");
 
     // Tracking time statistics
-    saveTrackingTime(vTimesTrack, (output_dir / "TrackingTime.txt").string());
+    //saveTrackingTime(vTimesTrack, (output_dir / "TrackingTime.txt").string());
 
     // Save camera trajectory
-    pSLAM->SaveTrajectoryTUM((output_dir / "CameraTrajectory_TUM.txt").string());
-    pSLAM->SaveKeyFrameTrajectoryTUM((output_dir / "KeyFrameTrajectory_TUM.txt").string());
-    pSLAM->SaveTrajectoryEuRoC((output_dir / "CameraTrajectory_EuRoC.txt").string());
-    pSLAM->SaveKeyFrameTrajectoryEuRoC((output_dir / "KeyFrameTrajectory_EuRoC.txt").string());
-    pSLAM->SaveTrajectoryKITTI((output_dir / "CameraTrajectory_KITTI.txt").string());
+    //saveTotalTime(timeTotal, nImages,(output_dir / "total_time.txt").string());
+    //pSLAM->SaveTrajectoryTUM((output_dir / std::string(argv[7])).string());
+
 
     return 0;
 }
@@ -240,11 +239,21 @@ void LoadImages(const std::string &strAssociationFilename, std::vector<std::stri
     }
 }
 
-void saveTotalTime(const double &time, const std::string &strSavePath)
+void saveTotalTime(const double &time, const int nImages, const std::string &strSavePath)
 {
+    std::filesystem::path filePath(strSavePath);
+    std::filesystem::path dirPath = filePath.parent_path(); // Get the directory path
+    
+    // Ensure the directory exists
+    if (!std::filesystem::exists(dirPath)) {
+        std::filesystem::create_directories(dirPath); // Creates directory if it doesn't exist
+    } 
+
     std::ofstream out;
     out.open(strSavePath.c_str());
-
+    out << "Total time: " << std::fixed << std::setprecision(4) << time << std::endl;
+    out << "Number of images: " << nImages << std::endl;
+    out << "FPS: " << std::fixed << std::setprecision(4) << nImages/time << std::endl;
     out.close();
 }
 

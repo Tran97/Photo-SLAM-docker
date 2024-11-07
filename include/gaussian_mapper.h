@@ -217,6 +217,7 @@ protected:
     void keyframesToJson(std::filesystem::path result_dir);
     void saveModelParams(std::filesystem::path result_dir);
     void writeKeyframeUsedTimes(std::filesystem::path result_dir, std::string name_suffix = "");
+    void saveMappingTime(const std::vector<double> &vTimesMapping, const std::string &strSavePath);
 
 public:
     // Parameters

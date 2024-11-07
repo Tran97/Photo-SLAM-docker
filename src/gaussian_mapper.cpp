@@ -370,8 +370,13 @@ void GaussianMapper::readConfigFromFile(std::filesystem::path cfg_path)
 
 void GaussianMapper::run()
 {
+    std::vector<double> vTimesInitialMapping;
+    std::vector<double> vTimesIncrementalMapping;
+    std::vector<double> vTimesTailOptimization;
+
     // First loop: Initial gaussian mapping
     while (!isStopped()) {
+    std::chrono::steady_clock::time_point initialMapping1 = std::chrono::steady_clock::now();
         // Check conditions for initial mapping
         if (hasMetInitialMappingConditions()) {
             pSLAM_->getAtlas()->clearMappingOperation();
@@ -500,11 +505,17 @@ void GaussianMapper::run()
             // Initial conditions not satisfied
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
+    std::chrono::steady_clock::time_point initialMapping2 = std::chrono::steady_clock::now();
+    double timeInitialMapping = std::chrono::duration_cast<std::chrono::duration<double>>(initialMapping2-initialMapping1).count();
+    vTimesInitialMapping.push_back(timeInitialMapping);
     }
+
+
 
     // Second loop: Incremental gaussian mapping
     int SLAM_stop_iter = 0;
     while (!isStopped()) {
+        std::chrono::steady_clock::time_point incrementalMapping1 = std::chrono::steady_clock::now();
         // Check conditions for incremental mapping
         if (hasMetIncrementalMappingConditions()) {
             combineMappingOperations();
@@ -522,21 +533,34 @@ void GaussianMapper::run()
 
         if (SLAM_ended_ || getIteration() >= opt_params_.iterations_)
             break;
+        std::chrono::steady_clock::time_point incrementalMapping2 = std::chrono::steady_clock::now();
+        double timeInitialMapping = std::chrono::duration_cast<std::chrono::duration<double>>(incrementalMapping2-incrementalMapping1).count();
+        vTimesIncrementalMapping.push_back(timeInitialMapping);
     }
 
     // Third loop: Tail gaussian optimization
     int densify_interval = densifyInterval();
     int n_delay_iters = densify_interval * 0.8;
     while (getIteration() - SLAM_stop_iter <= n_delay_iters || getIteration() % densify_interval <= n_delay_iters || isKeepingTraining()) {
+        std::chrono::steady_clock::time_point tailOptimizationTime1 = std::chrono::steady_clock::now();
+
         trainForOneIteration();
         densify_interval = densifyInterval();
         n_delay_iters = densify_interval * 0.8;
+
+        std::chrono::steady_clock::time_point tailOptimizationTime2 = std::chrono::steady_clock::now();
+        double timeTailOptimization = std::chrono::duration_cast<std::chrono::duration<double>>(tailOptimizationTime2-tailOptimizationTime1).count();
+        vTimesTailOptimization.push_back(timeTailOptimization);
     }
 
     // Save and clear
-    renderAndRecordAllKeyframes("_shutdown");
-    savePly(result_dir_ / (std::to_string(getIteration()) + "_shutdown") / "ply");
-    writeKeyframeUsedTimes(result_dir_ / "used_times", "final");
+    //renderAndRecordAllKeyframes("_shutdown");
+    //savePly(result_dir_ / (std::to_string(getIteration()) + "_shutdown") / "ply");
+    //writeKeyframeUsedTimes(result_dir_ / "used_times", "final");
+    saveMappingTime(vTimesInitialMapping, (result_dir_ / "Initial_mapping_time.txt").string());
+    saveMappingTime(vTimesIncrementalMapping, (result_dir_ / "Incremental_mapping_time.txt").string());
+    saveMappingTime(vTimesTailOptimization, (result_dir_ / "Tail_optimization_time.txt").string());
+
 
     signalStop();
 }
@@ -1770,6 +1794,18 @@ void GaussianMapper::writeKeyframeUsedTimes(std::filesystem::path result_dir, st
     out_stream << "##=========================================" <<std::endl;
 
     out_stream.close();
+}
+
+void GaussianMapper::saveMappingTime(const std::vector<double> &vTimesMapping, const std::string &strSavePath){
+    std::ofstream out;
+    out.open(strSavePath.c_str());
+    double totalTime = 0;
+    for (double time : vTimesMapping){
+        out << std::fixed << std::setprecision(4) << time << std::endl;
+        totalTime += time;
+    }
+    out << "Total time: " << std::fixed << std::setprecision(4) << totalTime << std::endl;
+    out.close();
 }
 
 int GaussianMapper::getIteration()
