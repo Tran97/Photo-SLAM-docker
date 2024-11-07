@@ -31,17 +31,18 @@
 #include <opencv2/core/core.hpp>
 
 #include "ORB-SLAM3/include/System.h"
+
 #include "include/gaussian_mapper.h"
 #include "viewer/imgui_viewer.h"
 
-void LoadImages(const std::string &strAssociationFilename, std::vector<std::string> &vstrImageFilenamesRGB,
-                std::vector<std::string> &vstrImageFilenamesD, std::vector<double> &vTimestamps);
+void LoadImages(const std::filesystem::path &pathImageDir, std::vector<std::string> &vstrImageFilenamesRGB,
+                std::vector<std::string> &vstrImageFilenamesD);
 void saveTrackingTime(std::vector<float> &vTimesTrack, const std::string &strSavePath);
 void saveGpuPeakMemoryUsage(std::filesystem::path pathSave);
 
 int main(int argc, char **argv)
 {
-    if (argc != 7 && argc != 8)
+    if (argc != 6 && argc != 7)
     {
         std::cerr << std::endl
                   << "Usage: " << argv[0]
@@ -49,17 +50,16 @@ int main(int argc, char **argv)
                   << " path_to_ORB_SLAM3_settings"           /*2*/
                   << " path_to_gaussian_mapping_settings"    /*3*/
                   << " path_to_sequence"                     /*4*/
-                  << " path_to_association"                  /*5*/
-                  << " path_to_trajectory_output_directory/" /*6*/
-                  << " (optional)no_viewer"                  /*7*/
+                  << " path_to_trajectory_output_directory/" /*5*/
+                  << " (optional)no_viewer"                  /*6*/
                   << std::endl;
         return 1;
     }
     bool use_viewer = true;
-    if (argc == 8)
-        use_viewer = (std::string(argv[7]) == "no_viewer" ? false : true);
+    if (argc == 7)
+        use_viewer = (std::string(argv[6]) == "no_viewer" ? false : true);
 
-    std::string output_directory = std::string(argv[6]);
+    std::string output_directory = std::string(argv[5]);
     if (output_directory.back() != '/')
         output_directory += "/";
     std::filesystem::path output_dir(output_directory);
@@ -67,22 +67,21 @@ int main(int argc, char **argv)
     // Retrieve paths to images
     std::vector<std::string> vstrImageFilenamesRGB;
     std::vector<std::string> vstrImageFilenamesD;
-    std::vector<double> vTimestamps;
-    std::string strAssociationFilename = std::string(argv[5]);
-    LoadImages(strAssociationFilename, vstrImageFilenamesRGB, vstrImageFilenamesD, vTimestamps);
+    std::string strImageDir = std::string(argv[4]);
+    std::filesystem::path pathImageDir(strImageDir);
+    pathImageDir /= "results";
+    LoadImages(pathImageDir, vstrImageFilenamesRGB, vstrImageFilenamesD);
 
-    // Check consistency in the number of images and depthmaps
+    // Check consistency in the number of images
     int nImages = vstrImageFilenamesRGB.size();
     if (vstrImageFilenamesRGB.empty())
     {
-        std::cerr << std::endl
-                  << "No images found in provided path." << std::endl;
+        std::cerr << std::endl << "No images found in provided path." << std::endl;
         return 1;
     }
     else if (vstrImageFilenamesD.size() != vstrImageFilenamesRGB.size())
     {
-        std::cerr << std::endl
-                  << "Different number of images for rgb and depth." << std::endl;
+        std::cerr << std::endl << "Different number of images for rgb and depth." << std::endl;
         return 1;
     }
 
@@ -125,13 +124,10 @@ int main(int argc, char **argv)
     std::vector<float> vTimesTrack;
     vTimesTrack.resize(nImages);
 
-    std::cout << std::endl
-              << "-------" << std::endl;
+    std::cout << std::endl << "-------" << std::endl;
     std::cout << "Start processing sequence ..." << std::endl;
-    std::cout << "Images in the sequence: " << nImages << std::endl
-              << std::endl;
+    std::cout << "Images in the sequence: " << nImages << std::endl << std::endl;
 
-    std::chrono::steady_clock::time_point time1 = std::chrono::steady_clock::now();
     // Main loop
     cv::Mat imRGB, imD;
     for (int ni = 0; ni < nImages; ni++)
@@ -139,23 +135,21 @@ int main(int argc, char **argv)
         if (pSLAM->isShutDown())
             break;
         // Read image and depthmap from file
-        imRGB = cv::imread(std::string(argv[4]) + "/" + vstrImageFilenamesRGB[ni], cv::IMREAD_UNCHANGED);
+        imRGB = cv::imread(vstrImageFilenamesRGB[ni], cv::IMREAD_UNCHANGED);
         cv::cvtColor(imRGB, imRGB, CV_BGR2RGB);
-        imD = cv::imread(std::string(argv[4]) + "/" + vstrImageFilenamesD[ni], cv::IMREAD_UNCHANGED);
-        double tframe = vTimestamps[ni];
+        imD = cv::imread(vstrImageFilenamesD[ni], cv::IMREAD_UNCHANGED);
+        double tframe = ni;
 
         if (imRGB.empty())
         {
-            std::cerr << std::endl
-                      << "Failed to load image at: "
-                      << std::string(argv[4]) << "/" << vstrImageFilenamesRGB[ni] << std::endl;
+            std::cerr << std::endl << "Failed to load image at: "
+                      << vstrImageFilenamesRGB[ni] << std::endl;
             return 1;
         }
         if (imD.empty())
         {
-            std::cerr << std::endl
-                      << "Failed to load depth image at: "
-                      << std::string(argv[4]) << "/" << vstrImageFilenamesD[ni] << std::endl;
+            std::cerr << std::endl << "Failed to load image at: "
+                      << vstrImageFilenamesD[ni] << std::endl;
             return 1;
         }
 
@@ -175,22 +169,8 @@ int main(int argc, char **argv)
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 
         double ttrack = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
-
         vTimesTrack[ni] = ttrack;
-
-        // Wait to load the next frame
-        double T = 0;
-        if (ni < nImages - 1)
-            T = vTimestamps[ni + 1] - tframe;
-        else if (ni > 0)
-            T = tframe - vTimestamps[ni - 1];
-
-        if (ttrack < T)
-            usleep((T - ttrack) * 1e6);
     }
-
-    std::chrono::steady_clock::time_point time2 = std::chrono::steady_clock::now();
-    double timeTotal = std::chrono::duration_cast<std::chrono::duration<double>>(time2 - time1).count();
 
     // Stop all threads
     pSLAM->Shutdown();
@@ -214,38 +194,19 @@ int main(int argc, char **argv)
     return 0;
 }
 
-void LoadImages(const std::string &strAssociationFilename, std::vector<std::string> &vstrImageFilenamesRGB,
-                std::vector<std::string> &vstrImageFilenamesD, std::vector<double> &vTimestamps)
+void LoadImages(const std::filesystem::path &pathImageDir, std::vector<std::string> &vstrImageFilenamesRGB,
+                std::vector<std::string> &vstrImageFilenamesD)
 {
-    std::ifstream fAssociation;
-    fAssociation.open(strAssociationFilename.c_str());
-    while (!fAssociation.eof())
+    for (const auto& imagePath : std::filesystem::directory_iterator(pathImageDir))
     {
-        std::string s;
-        std::getline(fAssociation, s);
-        if (!s.empty())
-        {
-            std::stringstream ss;
-            ss << s;
-            double t;
-            std::string sRGB, sD;
-            ss >> t;
-            vTimestamps.push_back(t);
-            ss >> sRGB;
-            vstrImageFilenamesRGB.push_back(sRGB);
-            ss >> t;
-            ss >> sD;
-            vstrImageFilenamesD.push_back(sD);
-        }
+        std::string name = imagePath.path().filename().string();
+        if (name.rfind("frame", 0) == 0)
+            vstrImageFilenamesRGB.push_back(imagePath.path().string());
+        else if (name.rfind("depth", 0) == 0)
+            vstrImageFilenamesD.push_back(imagePath.path().string());
+        std::sort(vstrImageFilenamesRGB.begin(), vstrImageFilenamesRGB.end());
+        std::sort(vstrImageFilenamesD.begin(), vstrImageFilenamesD.end());
     }
-}
-
-void saveTotalTime(const double &time, const std::string &strSavePath)
-{
-    std::ofstream out;
-    out.open(strSavePath.c_str());
-
-    out.close();
 }
 
 void saveTrackingTime(std::vector<float> &vTimesTrack, const std::string &strSavePath)
