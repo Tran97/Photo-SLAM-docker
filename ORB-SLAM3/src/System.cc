@@ -1576,5 +1576,10 @@ cv::Mat System::preprocessImage(const cv::Mat &src)
     return src.clone();
 }
 
+*Atlas System::getAtlas() const {
+    return mpAtlas;
+}
+
+
 } //namespace ORB_SLAM
 

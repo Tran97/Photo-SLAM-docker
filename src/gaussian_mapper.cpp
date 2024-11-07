@@ -560,6 +560,7 @@ void GaussianMapper::run()
     saveMappingTime(vTimesInitialMapping, (result_dir_ / "Initial_mapping_time.txt").string());
     saveMappingTime(vTimesIncrementalMapping, (result_dir_ / "Incremental_mapping_time.txt").string());
     saveMappingTime(vTimesTailOptimization, (result_dir_ / "Tail_optimization_time.txt").string());
+    renderAllPoses();
 
 
     signalStop();
@@ -2089,4 +2090,58 @@ void GaussianMapper::loadPly(std::filesystem::path ply_path, std::filesystem::pa
     // Ready
     this->initial_mapped_ = true;
     increaseIteration();
+}
+
+
+void GaussianMapper::renderAllPoses(){
+    //cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
+    *ORB_SLAM3::Atlas mpAtlas = pSLAM->getAtlas();
+
+    vector<ORB_SLAM3::KeyFrame*> vpKFs = mpAtlas->GetAllKeyFrames();
+    sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
+
+    // Transform all keyframes so that the first keyframe is at the origin.
+    // After a loop closure the first keyframe might not be at the origin.
+    Sophus::SE3f Two = vpKFs[0]->GetPoseInverse();
+
+
+    // Frame pose is stored relative to its reference keyframe (which is optimized by BA and pose graph).
+    // We need to get first the keyframe pose and then concatenate the relative transformation.
+    // Frames not localized (tracking failure) are not saved.
+
+    // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
+    // which is true when tracking failed (lbL).
+    list<ORB_SLAM3::KeyFrame*>::iterator lRit = mpTracker->mlpReferences.begin();
+    list<double>::iterator lT = mpTracker->mlFrameTimes.begin();
+    list<bool>::iterator lbL = mpTracker->mlbLost.begin();
+    for(list<Sophus::SE3f>::iterator lit=mpTracker->mlRelativeFramePoses.begin(),
+        lend=mpTracker->mlRelativeFramePoses.end();lit!=lend;lit++, lRit++, lT++, lbL++)
+    {
+        if(*lbL)
+            continue;
+
+        KeyFrame* pKF = *lRit;
+
+        Sophus::SE3f Trw;
+
+        // If the reference keyframe was culled, traverse the spanning tree to get a suitable keyframe.
+        while(pKF->isBad())
+        {
+            Trw = Trw * pKF->mTcp;
+            pKF = pKF->GetParent();
+        }
+        //*lit is the relative transformation from the current frame to its reference keyframe.
+        //By multiplying it with Trw, which transforms the reference keyframe to the world frame, 
+        //we obtain Tcw, the pose of the current frame relative to the world.
+        Trw = Trw * pKF->GetPose() * Two;
+
+        Sophus::SE3f Tcw = (*lit) * Trw;
+        Sophus::SE3f Twc = Tcw.inverse();
+
+        cv::Mat renderedImage = GaussianMapper::renderFromPose(Twc, 640, 480, true);
+
+        // Save or display the rendered image here
+        cv::imshow("Rendered Image", renderedImage);
+        cv::waitKey(1);  // Adjust as needed to view each frame
+    }
 }
