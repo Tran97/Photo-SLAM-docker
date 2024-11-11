@@ -35,9 +35,11 @@
 #include "viewer/imgui_viewer.h"
 
 void LoadImages(const std::string &strAssociationFilename, std::vector<std::string> &vstrImageFilenamesRGB,
-                std::vector<std::string> &vstrImageFilenamesD, std::vector<double> &vTimestamps);
+std::vector<std::string> &vstrImageFilenamesD, std::vector<double> &vTimestamps);
 void saveTrackingTime(std::vector<float> &vTimesTrack, const std::string &strSavePath);
+void saveAllKeyframePoses(const std::vector<Sophus::SE3f> &vKeyframePoses, const std::string &strSavePath);
 void saveGpuPeakMemoryUsage(std::filesystem::path pathSave);
+void saveTotalTime(const double &time, const int nImages, const std::string &strSavePath);
 
 int main(int argc, char **argv)
 {
@@ -51,14 +53,13 @@ int main(int argc, char **argv)
                   << " path_to_sequence"                     /*4*/
                   << " path_to_association"                  /*5*/
                   << " path_to_trajectory_output_directory/" /*6*/
-                  << " index_run"                            /*7*/
-                  << " (optional)no_viewer"                  /*8*/
+                  << " (optional)no_viewer"                  /*7*/
                   << std::endl;
         return 1;
     }
     bool use_viewer = true;
     if (argc == 8)
-        use_viewer = (std::string(argv[8]) == "no_viewer" ? false : true);
+        use_viewer = (std::string(argv[7]) == "no_viewer" ? false : true);
 
     std::string output_directory = std::string(argv[6]);
     if (output_directory.back() != '/')
@@ -200,15 +201,18 @@ int main(int argc, char **argv)
         viewer_thd.join();
 
     // GPU peak usage
-    //saveGpuPeakMemoryUsage(output_dir / "GpuPeakUsageMB.txt");
+    saveGpuPeakMemoryUsage(output_dir / "GpuPeakUsageMB.txt");
 
     // Tracking time statistics
-    //saveTrackingTime(vTimesTrack, (output_dir / "TrackingTime.txt").string());
+    saveTrackingTime(vTimesTrack, (output_dir / "TrackingTime.txt").string());
 
     // Save camera trajectory
-    //saveTotalTime(timeTotal, nImages,(output_dir / "total_time.txt").string());
+    saveTotalTime(timeTotal, nImages,(output_dir / "total_time.txt").string());
     //pSLAM->SaveTrajectoryTUM((output_dir / std::string(argv[7])).string());
+    pSLAM->SaveTrajectoryTUM((output_dir / "tracking.txt").string());
 
+    //saveAllKeyframePoses(pGausMapper->getAllKeyFramePoses(), (output_dir / "photo_kf_poses.txt").string());
+    //saveAllKeyframePoses(pSLAM->getAllKeyFramePoses(), (output_dir / "orb_kf_poses.txt").string());
 
     return 0;
 }
@@ -257,6 +261,20 @@ void saveTotalTime(const double &time, const int nImages, const std::string &str
     out.close();
 }
 
+void saveAllKeyframePoses(const std::vector<Sophus::SE3f> &vKeyframePoses, const std::string &strSavePath)
+{
+    std::ofstream out;
+    out.open(strSavePath.c_str());
+    for (auto pose : vKeyframePoses)
+    {
+        Eigen::Vector3f twc = pose.translation();
+        Eigen::Quaternionf q = pose.unit_quaternion();
+
+        out << setprecision(6) << setprecision(9) << twc(0) << " " << twc(1) << " " << twc(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+    }
+
+    out.close();
+}
 void saveTrackingTime(std::vector<float> &vTimesTrack, const std::string &strSavePath)
 {
     std::ofstream out;
@@ -269,14 +287,6 @@ void saveTrackingTime(std::vector<float> &vTimesTrack, const std::string &strSav
             << vTimesTrack[ni] << std::endl;
         totaltime += vTimesTrack[ni];
     }
-
-    // std::sort(vTimesTrack.begin(), vTimesTrack.end());
-    // out << "-------" << std::endl;
-    // out << std::fixed << std::setprecision(4)
-    //     << "median tracking time: " << vTimesTrack[nImages / 2] << std::endl;
-    // out << std::fixed << std::setprecision(4)
-    //     << "mean tracking time: " << totaltime / nImages << std::endl;
-
     out.close();
 }
 

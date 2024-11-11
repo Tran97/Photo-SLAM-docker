@@ -41,8 +41,6 @@
 
 #include "ORB-SLAM3/include/System.h"
 #include "ORB-SLAM3/Thirdparty/Sophus/sophus/se3.hpp"
-#include "ORB_SLAM3/Atlas.h"   // For mpAtlas and related classes
-#include "ORB_SLAM3/KeyFrame.h" // For KeyFrame class
 
 #include "operate_points.h"
 #include "stereo_vision.h"
@@ -166,7 +164,8 @@ public:
     void setSensorType(SystemSensorType sensor_type) { this->sensor_type_ = sensor_type; }
 
     void loadPly(std::filesystem::path ply_path, std::filesystem::path camera_path = "");
-    void renderAllPoses();
+    void renderAllPoses(std::filesystem::path result_dir);
+    std::vector<Sophus::SE3f> getAllKeyFramePoses();
 protected:
     bool hasMetInitialMappingConditions();
     bool hasMetIncrementalMappingConditions();
@@ -220,6 +219,7 @@ protected:
     void saveModelParams(std::filesystem::path result_dir);
     void writeKeyframeUsedTimes(std::filesystem::path result_dir, std::string name_suffix = "");
     void saveMappingTime(const std::vector<double> &vTimesMapping, const std::string &strSavePath);
+
 
 public:
     // Parameters

@@ -645,6 +645,20 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename)
     f.close();
 }
 
+std::vector<Sophus::SE3f> System::getAllKeyFramePoses()
+{
+    vector<KeyFrame*> vpKFs = mpAtlas->GetAllKeyFrames();
+
+    vector<Sophus::SE3f> poses;
+    for(size_t i=0; i<vpKFs.size(); i++)
+    {
+        KeyFrame* pKF = vpKFs[i];
+        Sophus::SE3f Twc = pKF->GetPose();
+        poses.push_back(Twc);
+    }
+    return poses;
+}
+
 void System::SaveTrajectoryEuRoC(const string &filename)
 {
 
@@ -654,8 +668,8 @@ void System::SaveTrajectoryEuRoC(const string &filename)
         cerr << "ERROR: SaveTrajectoryEuRoC cannot be used for monocular." << endl;
         return;
     }*/
-
-    vector<Map*> vpMaps = mpAtlas->GetAllMaps();
+    
+vector<Map*> vpMaps = mpAtlas->GetAllMaps();
     int numMaxKFs = 0;
     Map* pBiggerMap;
     std::cout << "There are " << std::to_string(vpMaps.size()) << " maps in the atlas" << std::endl;
@@ -1576,10 +1590,48 @@ cv::Mat System::preprocessImage(const cv::Mat &src)
     return src.clone();
 }
 
-*Atlas System::getAtlas() const {
-    return mpAtlas;
-}
+std::vector<Sophus::SE3f> System::getPoses(){
+    vector<ORB_SLAM3::KeyFrame*> vpKFs = mpAtlas->GetAllKeyFrames();
+    sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
 
+    // Frame pose is stored relative to its reference keyframe (which is optimized by BA and pose graph).
+    // We need to get first the keyframe pose and then concatenate the relative transformation.
+
+    // Init vector to store poses
+    std::vector<Sophus::SE3f> poses;
+
+    // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
+    // which is true when tracking failed (lbL).
+    list<ORB_SLAM3::KeyFrame*>::iterator lRit = mpTracker->mlpReferences.begin();
+    list<double>::iterator lT = mpTracker->mlFrameTimes.begin();
+    list<bool>::iterator lbL = mpTracker->mlbLost.begin();
+    for(list<Sophus::SE3f>::iterator lit=mpTracker->mlRelativeFramePoses.begin(),
+        lend=mpTracker->mlRelativeFramePoses.end();lit!=lend;lit++, lRit++, lT++, lbL++)
+    {
+        if(*lbL)
+            continue;
+
+        KeyFrame* pKF = *lRit;
+
+        Sophus::SE3f T_ref;
+
+        // If the reference keyframe was culled, traverse the spanning tree to get a suitable keyframe.
+        while(pKF->isBad())
+        {
+            T_ref = T_ref * pKF->mTcp;
+            pKF = pKF->GetParent();
+        }
+        //*lit is the relative transformation from the current frame to its reference keyframe.
+        //By multiplying it with Trw, which transforms the reference keyframe to the world frame, 
+        //we obtain Tcw, the pose of the current frame relative to the world.
+        Trw = Trw * pKF->GetPose();
+
+        Sophus::SE3f Tcw = (*lit) * T_ref;
+        Sophus::SE3f Twc = Tcw.inverse();
+        poses.push_back(pKF->GetPose());
+    }
+    return poses;
+}
 
 } //namespace ORB_SLAM
 

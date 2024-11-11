@@ -555,12 +555,12 @@ void GaussianMapper::run()
 
     // Save and clear
     //renderAndRecordAllKeyframes("_shutdown");
-    //savePly(result_dir_ / (std::to_string(getIteration()) + "_shutdown") / "ply");
+    savePly(result_dir_ / (std::to_string(getIteration()) + "_shutdown") / "ply");
     //writeKeyframeUsedTimes(result_dir_ / "used_times", "final");
     saveMappingTime(vTimesInitialMapping, (result_dir_ / "Initial_mapping_time.txt").string());
     saveMappingTime(vTimesIncrementalMapping, (result_dir_ / "Incremental_mapping_time.txt").string());
     saveMappingTime(vTimesTailOptimization, (result_dir_ / "Tail_optimization_time.txt").string());
-    renderAllPoses();
+    renderAllPoses(result_dir_ / "renders");
 
 
     signalStop();
@@ -1554,6 +1554,8 @@ cv::Mat GaussianMapper::renderFromPose(
     std::shared_ptr<GaussianKeyframe> pkf = std::make_shared<GaussianKeyframe>();
     pkf->zfar_ = z_far_;
     pkf->znear_ = z_near_;
+
+
     // Pose
     pkf->setPose(
         Tcw.unit_quaternion().cast<double>(),
@@ -1562,6 +1564,7 @@ cv::Mat GaussianMapper::renderFromPose(
         // Camera
         Camera& camera = scene_->cameras_.at(viewer_camera_id_);
         pkf->setCameraParams(camera);
+
         // Transformations
         pkf->computeTransformTensors();
     }
@@ -1586,10 +1589,11 @@ cv::Mat GaussianMapper::renderFromPose(
 
     // Result
     torch::Tensor masked_image;
-    if (main_vision)
-        masked_image = std::get<0>(render_pkg) * viewer_main_undistort_mask_[pkf->camera_id_];
-    else
-        masked_image = std::get<0>(render_pkg) * viewer_sub_undistort_mask_[pkf->camera_id_];
+    //if (main_vision)
+        //masked_image = std::get<0>(render_pkg) * viewer_main_undistort_mask_[pkf->camera_id_];
+    //else
+        //masked_image = std::get<0>(render_pkg) * viewer_sub_undistort_mask_[pkf->camera_id_];
+    masked_image = std::get<0>(render_pkg);
     return tensor_utils::torchTensor2CvMat_Float32(masked_image);
 }
 
@@ -1795,18 +1799,6 @@ void GaussianMapper::writeKeyframeUsedTimes(std::filesystem::path result_dir, st
     out_stream << "##=========================================" <<std::endl;
 
     out_stream.close();
-}
-
-void GaussianMapper::saveMappingTime(const std::vector<double> &vTimesMapping, const std::string &strSavePath){
-    std::ofstream out;
-    out.open(strSavePath.c_str());
-    double totalTime = 0;
-    for (double time : vTimesMapping){
-        out << std::fixed << std::setprecision(4) << time << std::endl;
-        totalTime += time;
-    }
-    out << "Total time: " << std::fixed << std::setprecision(4) << totalTime << std::endl;
-    out.close();
 }
 
 int GaussianMapper::getIteration()
@@ -2092,56 +2084,45 @@ void GaussianMapper::loadPly(std::filesystem::path ply_path, std::filesystem::pa
     increaseIteration();
 }
 
-
-void GaussianMapper::renderAllPoses(){
-    //cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
-    *ORB_SLAM3::Atlas mpAtlas = pSLAM->getAtlas();
-
-    vector<ORB_SLAM3::KeyFrame*> vpKFs = mpAtlas->GetAllKeyFrames();
-    sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
-
-    // Transform all keyframes so that the first keyframe is at the origin.
-    // After a loop closure the first keyframe might not be at the origin.
-    Sophus::SE3f Two = vpKFs[0]->GetPoseInverse();
-
-
-    // Frame pose is stored relative to its reference keyframe (which is optimized by BA and pose graph).
-    // We need to get first the keyframe pose and then concatenate the relative transformation.
-    // Frames not localized (tracking failure) are not saved.
-
-    // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
-    // which is true when tracking failed (lbL).
-    list<ORB_SLAM3::KeyFrame*>::iterator lRit = mpTracker->mlpReferences.begin();
-    list<double>::iterator lT = mpTracker->mlFrameTimes.begin();
-    list<bool>::iterator lbL = mpTracker->mlbLost.begin();
-    for(list<Sophus::SE3f>::iterator lit=mpTracker->mlRelativeFramePoses.begin(),
-        lend=mpTracker->mlRelativeFramePoses.end();lit!=lend;lit++, lRit++, lT++, lbL++)
+void GaussianMapper::renderAllPoses(std::filesystem::path result_dir){
+    CHECK_DIRECTORY_AND_CREATE_IF_NOT_EXISTS(result_dir);
+    std::vector<Sophus::SE3f> poses = pSLAM_->getPoses();
+    int i=0;
+    for(auto pose : poses)
     {
-        if(*lbL)
-            continue;
+        cv::Mat renderedImage = GaussianMapper::renderFromPose(pose, 640, 480, false);
 
-        KeyFrame* pKF = *lRit;
-
-        Sophus::SE3f Trw;
-
-        // If the reference keyframe was culled, traverse the spanning tree to get a suitable keyframe.
-        while(pKF->isBad())
-        {
-            Trw = Trw * pKF->mTcp;
-            pKF = pKF->GetParent();
-        }
-        //*lit is the relative transformation from the current frame to its reference keyframe.
-        //By multiplying it with Trw, which transforms the reference keyframe to the world frame, 
-        //we obtain Tcw, the pose of the current frame relative to the world.
-        Trw = Trw * pKF->GetPose() * Two;
-
-        Sophus::SE3f Tcw = (*lit) * Trw;
-        Sophus::SE3f Twc = Tcw.inverse();
-
-        cv::Mat renderedImage = GaussianMapper::renderFromPose(Twc, 640, 480, true);
-
-        // Save or display the rendered image here
-        cv::imshow("Rendered Image", renderedImage);
-        cv::waitKey(1);  // Adjust as needed to view each frame
+        cv::cvtColor(renderedImage, renderedImage, CV_RGB2BGR);
+        renderedImage.convertTo(renderedImage, CV_8UC3, 255.0f);
+        cv::imwrite((result_dir / (std::to_string(i) + ".jpg")).string(), renderedImage);
+        i++;
     }
 }
+
+std::vector<Sophus::SE3f> GaussianMapper::getAllKeyFramePoses()
+{
+    std::vector<Sophus::SE3f> poses;
+
+    std::size_t nkfs = scene_->keyframes().size();
+    auto kfit = scene_->keyframes().begin();
+    for (std::size_t i = 0; i < nkfs; ++i) {
+        Sophus::SE3f pose = (*kfit).second->getPosef();
+        poses.push_back(pose);
+        ++kfit;
+    }
+    return poses;
+}
+
+
+void GaussianMapper::saveMappingTime(const std::vector<double> &vTimesMapping, const std::string &strSavePath){
+    std::ofstream out;
+    out.open(strSavePath.c_str());
+    double totalTime = 0;
+    for (double time : vTimesMapping){
+        out << std::fixed << std::setprecision(4) << time << std::endl;
+        totalTime += time;
+    }
+    out << "Total time: " << std::fixed << std::setprecision(4) << totalTime << std::endl;
+    out.close();
+}
+
