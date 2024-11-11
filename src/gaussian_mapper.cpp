@@ -321,6 +321,9 @@ void GaussianMapper::readConfigFromFile(std::filesystem::path cfg_path)
     record_loop_ply_ =
         (settings_file["Record.record_loop_ply"].operator int()) != 0;
 
+    isReplica_ =
+        (settings_file["IsReplica"].operator int()) != 0;
+
     // Optimization Parameters
     opt_params_.iterations_ =
         settings_file["Optimization.max_num_iterations"].operator int();
@@ -2085,12 +2088,24 @@ void GaussianMapper::loadPly(std::filesystem::path ply_path, std::filesystem::pa
 }
 
 void GaussianMapper::renderAllPoses(std::filesystem::path result_dir){
+    int height, width;
+    if (isReplica_){
+        // Render replica size
+        width = 1200;
+        height = 680;
+    }
+    else {
+        // Render TUM size
+        width = 640;
+        height = 480;
+    }
+
     CHECK_DIRECTORY_AND_CREATE_IF_NOT_EXISTS(result_dir);
     std::vector<Sophus::SE3f> poses = pSLAM_->getPoses();
     int i=0;
     for(auto pose : poses)
     {
-        cv::Mat renderedImage = GaussianMapper::renderFromPose(pose, 640, 480, false);
+        cv::Mat renderedImage = GaussianMapper::renderFromPose(pose, width, height, false);
 
         cv::cvtColor(renderedImage, renderedImage, CV_RGB2BGR);
         renderedImage.convertTo(renderedImage, CV_8UC3, 255.0f);

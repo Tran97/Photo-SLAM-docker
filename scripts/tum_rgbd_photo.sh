@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-for i in 0 1
+for i in 0 1 2
 do
 RESULT_PATH_FR1="../../results/photo/tum_rgbd_$i/rgbd_dataset_freiburg1_desk"
 mkdir -p $RESULT_PATH_FR1

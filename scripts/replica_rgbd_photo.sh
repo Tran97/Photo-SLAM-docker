@@ -10,7 +10,6 @@ mkdir -p $RESULT_PATH_OFFICE0
     ../cfg/ORB_SLAM3/RGB-D/Replica/office0.yaml \
     ../cfg/gaussian_mapper/RGB-D/Replica/replica_rgbd.yaml \
     ../../dataset/Replica/office0 \
-    ../../dataset/TUM/rgbd_dataset_freiburg3_long_office_household \
     $RESULT_PATH_OFFICE0 \
     no_viewer
 

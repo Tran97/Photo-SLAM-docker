@@ -318,6 +318,8 @@ protected:
     int training_report_interval_;
     bool record_loop_ply_;
 
+    bool isReplica_;
+
     int prune_big_point_after_iter_;
     float densify_min_opacity_ = 20;
 
