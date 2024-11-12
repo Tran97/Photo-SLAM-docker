@@ -1627,9 +1627,33 @@ std::vector<Sophus::SE3f> System::getPoses(){
         T_ref = T_ref * pKF->GetPose();
 
         Sophus::SE3f Tcw = (*lit) * T_ref;
-        Sophus::SE3f Twc = Tcw.inverse();
+        //Sophus::SE3f Twc = Tcw.inverse();
 
-        poses.push_back(Twc);
+        // Extract rotation and convert to Euler angles (yaw, pitch, roll)
+        //Eigen::Quaternionf q = Tcw.unit_quaternion();
+        //Eigen::Vector3f euler_angles = q.toRotationMatrix().eulerAngles(2, 1, 0); // Yaw (Z), Pitch (Y), Roll (X)
+
+        // Invert pitch and yaw
+        //euler_angles[0] = -euler_angles[0]; // Invert yaw
+        //euler_angles[1] = -euler_angles[1]; // Invert pitch
+
+        // Convert back to quaternion
+        //Eigen::Quaternionf q_inverted;
+        //q_inverted = Eigen::AngleAxisf(euler_angles[0], Eigen::Vector3f::UnitZ()) *
+        //             Eigen::AngleAxisf(euler_angles[1], Eigen::Vector3f::UnitY()) *
+        //             Eigen::AngleAxisf(euler_angles[2], Eigen::Vector3f::UnitX());
+
+        // Construct a new Twc with the same translation but inverted rotation
+        //Sophus::SE3f Tcw_inverted(q_inverted, Tcw.translation());
+
+
+        //Sophus::SE3f Twc = Tcw_inverted.inverse();
+        // Add the modified pose to the poses vector
+        poses.push_back(Tcw);
+
+
+
+        //poses.push_back(Twc);
     }
     return poses;
 }
