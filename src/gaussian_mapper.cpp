@@ -2090,11 +2090,13 @@ void GaussianMapper::loadPly(std::filesystem::path ply_path, std::filesystem::pa
 void GaussianMapper::renderAllPoses(std::filesystem::path result_dir){
     int height, width;
     if (isReplica_){
+        std::cout << "Rendering replica size" << std::endl;
         // Render replica size
         width = 1200;
         height = 680;
     }
     else {
+        std::cout << "Rendering TUM size" << std::endl;
         // Render TUM size
         width = 640;
         height = 480;

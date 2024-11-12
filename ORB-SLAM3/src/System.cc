@@ -1624,11 +1624,12 @@ std::vector<Sophus::SE3f> System::getPoses(){
         //*lit is the relative transformation from the current frame to its reference keyframe.
         //By multiplying it with Trw, which transforms the reference keyframe to the world frame, 
         //we obtain Tcw, the pose of the current frame relative to the world.
-        Trw = Trw * pKF->GetPose();
+        T_ref = T_ref * pKF->GetPose();
 
         Sophus::SE3f Tcw = (*lit) * T_ref;
         Sophus::SE3f Twc = Tcw.inverse();
-        poses.push_back(pKF->GetPose());
+
+        poses.push_back(Twc);
     }
     return poses;
 }

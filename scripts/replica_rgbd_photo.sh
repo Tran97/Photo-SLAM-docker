@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-for i in 0 1
+for i in 0 1 2
 do
 RESULT_PATH_OFFICE0="../../results/photo/replica$i/office0"
 mkdir -p $RESULT_PATH_OFFICE0
@@ -12,6 +12,7 @@ mkdir -p $RESULT_PATH_OFFICE0
     ../../dataset/Replica/office0 \
     $RESULT_PATH_OFFICE0 \
     no_viewer
+    
 
 RESULT_PATH_OFFICE1="../../results/photo/replica$i/office1"
 mkdir -p $RESULT_PATH_OFFICE1
