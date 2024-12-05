@@ -319,6 +319,7 @@ protected:
     bool record_loop_ply_;
 
     bool isReplica_;
+    bool isTUM_;
 
     int prune_big_point_after_iter_;
     float densify_min_opacity_ = 20;

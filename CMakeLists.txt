@@ -191,6 +191,21 @@ target_link_libraries(view_result
 ##  Build the mapping examples to ${PROJECT_SOURCE_DIR}/bin
 ##################################################################################
 
+# Kitti rgbd
+add_executable(kitti_rgbd examples/kitti_rgbd.cpp)
+target_link_libraries(kitti_rgbd
+    gaussian_viewer    
+    gaussian_mapper
+    ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)
+
+# Kitti rgbd/stereo
+add_executable(kitti_stereo examples/kitti_rgbd_stereo.cpp)
+target_link_libraries(kitti_stereo
+    gaussian_viewer    
+    gaussian_mapper
+    ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)
+
+
 # Replica Monocular
 add_executable(replica_mono examples/replica_mono.cpp)
 target_link_libraries(replica_mono
@@ -198,7 +213,7 @@ target_link_libraries(replica_mono
     gaussian_mapper
     ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)
 
-# Replica Monocular
+# Replica rgbd
 add_executable(replica_rgbd examples/replica_rgbd.cpp)
 target_link_libraries(replica_rgbd
     gaussian_viewer    
