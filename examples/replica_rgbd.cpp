@@ -39,6 +39,7 @@ void LoadImages(const std::filesystem::path &pathImageDir, std::vector<std::stri
                 std::vector<std::string> &vstrImageFilenamesD);
 void saveTrackingTime(std::vector<float> &vTimesTrack, const std::string &strSavePath);
 void saveGpuPeakMemoryUsage(std::filesystem::path pathSave);
+void saveTotalTime(const double &time, const int nImages, const std::string &strSavePath);
 
 int main(int argc, char **argv)
 {
@@ -128,6 +129,7 @@ int main(int argc, char **argv)
     std::cout << "Start processing sequence ..." << std::endl;
     std::cout << "Images in the sequence: " << nImages << std::endl << std::endl;
 
+    std::chrono::steady_clock::time_point time1 = std::chrono::steady_clock::now();
     // Main loop
     cv::Mat imRGB, imD;
     for (int ni = 0; ni < nImages; ni++)
@@ -172,6 +174,9 @@ int main(int argc, char **argv)
         vTimesTrack[ni] = ttrack;
     }
 
+    std::chrono::steady_clock::time_point time2 = std::chrono::steady_clock::now();
+    double timeTotal = std::chrono::duration_cast<std::chrono::duration<double>>(time2 - time1).count();
+
     // Stop all threads
     pSLAM->Shutdown();
     training_thd.join();
@@ -185,11 +190,8 @@ int main(int argc, char **argv)
     saveTrackingTime(vTimesTrack, (output_dir / "TrackingTime.txt").string());
 
     // Save camera trajectory
-    pSLAM->SaveTrajectoryTUM((output_dir / "CameraTrajectory_TUM.txt").string());
-    pSLAM->SaveKeyFrameTrajectoryTUM((output_dir / "KeyFrameTrajectory_TUM.txt").string());
-    pSLAM->SaveTrajectoryEuRoC((output_dir / "CameraTrajectory_EuRoC.txt").string());
-    pSLAM->SaveKeyFrameTrajectoryEuRoC((output_dir / "KeyFrameTrajectory_EuRoC.txt").string());
-    pSLAM->SaveTrajectoryKITTI((output_dir / "CameraTrajectory_KITTI.txt").string());
+    saveTotalTime(timeTotal, nImages,(output_dir / "total_time.txt").string());
+    pSLAM->SaveTrajectoryTUM((output_dir / "tracking.txt").string());
 
     return 0;
 }
@@ -246,5 +248,23 @@ void saveGpuPeakMemoryUsage(std::filesystem::path pathSave)
     std::ofstream out(pathSave);
     out << "Peak reserved (MB): " << max_reserved_MB << std::endl;
     out << "Peak allocated (MB): " << max_alloc_MB << std::endl;
+    out.close();
+}
+
+void saveTotalTime(const double &time, const int nImages, const std::string &strSavePath)
+{
+    std::filesystem::path filePath(strSavePath);
+    std::filesystem::path dirPath = filePath.parent_path(); // Get the directory path
+    
+    // Ensure the directory exists
+    if (!std::filesystem::exists(dirPath)) {
+        std::filesystem::create_directories(dirPath); // Creates directory if it doesn't exist
+    } 
+
+    std::ofstream out;
+    out.open(strSavePath.c_str());
+    out << "Total time: " << std::fixed << std::setprecision(4) << time << std::endl;
+    out << "Number of images: " << nImages << std::endl;
+    out << "FPS: " << std::fixed << std::setprecision(4) << nImages/time << std::endl;
     out.close();
 }

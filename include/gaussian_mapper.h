@@ -164,7 +164,8 @@ public:
     void setSensorType(SystemSensorType sensor_type) { this->sensor_type_ = sensor_type; }
 
     void loadPly(std::filesystem::path ply_path, std::filesystem::path camera_path = "");
-
+    void renderAllPoses(std::filesystem::path result_dir);
+    std::vector<Sophus::SE3f> getAllKeyFramePoses();
 protected:
     bool hasMetInitialMappingConditions();
     bool hasMetIncrementalMappingConditions();
@@ -217,6 +218,8 @@ protected:
     void keyframesToJson(std::filesystem::path result_dir);
     void saveModelParams(std::filesystem::path result_dir);
     void writeKeyframeUsedTimes(std::filesystem::path result_dir, std::string name_suffix = "");
+    void saveMappingTime(const std::vector<double> &vTimesMapping, const std::string &strSavePath);
+
 
 public:
     // Parameters
@@ -314,6 +317,9 @@ protected:
 
     int training_report_interval_;
     bool record_loop_ply_;
+
+    bool isReplica_;
+    bool isTUM_;
 
     int prune_big_point_after_iter_;
     float densify_min_opacity_ = 20;

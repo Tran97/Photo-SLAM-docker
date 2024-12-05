@@ -35,13 +35,15 @@
 #include "viewer/imgui_viewer.h"
 
 void LoadImages(const std::string &strAssociationFilename, std::vector<std::string> &vstrImageFilenamesRGB,
-                std::vector<std::string> &vstrImageFilenamesD, std::vector<double> &vTimestamps);
+std::vector<std::string> &vstrImageFilenamesD, std::vector<double> &vTimestamps);
 void saveTrackingTime(std::vector<float> &vTimesTrack, const std::string &strSavePath);
+void saveAllKeyframePoses(const std::vector<Sophus::SE3f> &vKeyframePoses, const std::string &strSavePath);
 void saveGpuPeakMemoryUsage(std::filesystem::path pathSave);
+void saveTotalTime(const double &time, const int nImages, const std::string &strSavePath);
 
 int main(int argc, char **argv)
 {
-    if (argc != 7 && argc != 8)
+    if (argc != 8 && argc != 9)
     {
         std::cerr << std::endl
                   << "Usage: " << argv[0]
@@ -205,11 +207,12 @@ int main(int argc, char **argv)
     saveTrackingTime(vTimesTrack, (output_dir / "TrackingTime.txt").string());
 
     // Save camera trajectory
-    pSLAM->SaveTrajectoryTUM((output_dir / "CameraTrajectory_TUM.txt").string());
-    pSLAM->SaveKeyFrameTrajectoryTUM((output_dir / "KeyFrameTrajectory_TUM.txt").string());
-    pSLAM->SaveTrajectoryEuRoC((output_dir / "CameraTrajectory_EuRoC.txt").string());
-    pSLAM->SaveKeyFrameTrajectoryEuRoC((output_dir / "KeyFrameTrajectory_EuRoC.txt").string());
-    pSLAM->SaveTrajectoryKITTI((output_dir / "CameraTrajectory_KITTI.txt").string());
+    saveTotalTime(timeTotal, nImages,(output_dir / "total_time.txt").string());
+    //pSLAM->SaveTrajectoryTUM((output_dir / std::string(argv[7])).string());
+    pSLAM->SaveTrajectoryTUM((output_dir / "tracking.txt").string());
+
+    //saveAllKeyframePoses(pGausMapper->getAllKeyFramePoses(), (output_dir / "photo_kf_poses.txt").string());
+    //saveAllKeyframePoses(pSLAM->getAllKeyFramePoses(), (output_dir / "orb_kf_poses.txt").string());
 
     return 0;
 }
@@ -240,14 +243,38 @@ void LoadImages(const std::string &strAssociationFilename, std::vector<std::stri
     }
 }
 
-void saveTotalTime(const double &time, const std::string &strSavePath)
+void saveTotalTime(const double &time, const int nImages, const std::string &strSavePath)
 {
+    std::filesystem::path filePath(strSavePath);
+    std::filesystem::path dirPath = filePath.parent_path(); // Get the directory path
+    
+    // Ensure the directory exists
+    if (!std::filesystem::exists(dirPath)) {
+        std::filesystem::create_directories(dirPath); // Creates directory if it doesn't exist
+    } 
+
     std::ofstream out;
     out.open(strSavePath.c_str());
-
+    out << "Total time: " << std::fixed << std::setprecision(4) << time << std::endl;
+    out << "Number of images: " << nImages << std::endl;
+    out << "FPS: " << std::fixed << std::setprecision(4) << nImages/time << std::endl;
     out.close();
 }
 
+void saveAllKeyframePoses(const std::vector<Sophus::SE3f> &vKeyframePoses, const std::string &strSavePath)
+{
+    std::ofstream out;
+    out.open(strSavePath.c_str());
+    for (auto pose : vKeyframePoses)
+    {
+        Eigen::Vector3f twc = pose.translation();
+        Eigen::Quaternionf q = pose.unit_quaternion();
+
+        out << setprecision(6) << setprecision(9) << twc(0) << " " << twc(1) << " " << twc(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+    }
+
+    out.close();
+}
 void saveTrackingTime(std::vector<float> &vTimesTrack, const std::string &strSavePath)
 {
     std::ofstream out;
@@ -260,14 +287,6 @@ void saveTrackingTime(std::vector<float> &vTimesTrack, const std::string &strSav
             << vTimesTrack[ni] << std::endl;
         totaltime += vTimesTrack[ni];
     }
-
-    // std::sort(vTimesTrack.begin(), vTimesTrack.end());
-    // out << "-------" << std::endl;
-    // out << std::fixed << std::setprecision(4)
-    //     << "median tracking time: " << vTimesTrack[nImages / 2] << std::endl;
-    // out << std::fixed << std::setprecision(4)
-    //     << "mean tracking time: " << totaltime / nImages << std::endl;
-
     out.close();
 }
 

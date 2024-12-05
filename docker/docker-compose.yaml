@@ -34,12 +34,16 @@ services:
       - /dev/dri:/dev/dri:rw
 
       - ../src:/dev_ws/Photo-SLAM/src:rw
+      - ../cfg:/dev_ws/Photo-SLAM/cfg:rw
       - ../include:/dev_ws/Photo-SLAM/include:rw
       - ../CMakeLists.txt:/dev_ws/Photo-SLAM/CMakeLists.txt:rw
       - ../scripts:/dev_ws/Photo-SLAM/scripts:rw
       - ../examples:/dev_ws/Photo-SLAM/examples:rw
+      - ../ORB-SLAM3/src:/dev_ws/Photo-SLAM/ORB-SLAM3/src:rw
+      - ../ORB-SLAM3/include:/dev_ws/Photo-SLAM/ORB-SLAM3/include:rw
+
       - ../../results:/dev_ws/results:rw
-      - ~/Desktop/thesis_utils/download_benchmark_data/dataset:/dev_ws/dataset:r
+      - ../../thesis_utils/download_benchmark_data/dataset:/dev_ws/dataset:r
 
     deploy:
       resources:

@@ -39,6 +39,7 @@
 #include "Viewer.h"
 #include "ImuTypes.h"
 #include "Settings.h"
+#include <Eigen/Geometry>
 
 
 namespace ORB_SLAM3
@@ -120,6 +121,9 @@ public:
     // Returns the camera pose (empty if tracking fails).
     Sophus::SE3f TrackMonocular(const cv::Mat &im, const double &timestamp, const vector<IMU::Point>& vImuMeas = vector<IMU::Point>(), string filename="");
 
+    // Get all camera poses
+    std::vector<Sophus::SE3f> getPoses();
+    std::vector<Sophus::SE3f> getAllKeyFramePoses();
 
     // This stops local mapping thread (map building) and performs only camera tracking.
     void ActivateLocalizationMode();
@@ -205,7 +209,6 @@ public:
     Settings* getSettings();
     FrameDrawer* getFrameDrawer();
     MapDrawer* getMapDrawer();
-
 private:
 
     void SaveAtlas(int type);
