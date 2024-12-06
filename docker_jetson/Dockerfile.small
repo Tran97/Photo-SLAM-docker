@@ -1,0 +1,147 @@
+# Stage 1: Use a pre-built OpenCV image with CUDA support
+FROM t4dashi/opencv-cuda:11.8.0-ubuntu22.04 AS opencv_base
+
+# Stage 2: Final Image
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04 AS dev
+
+#SHELL ["/bin/bash", "-c"]
+
+# Copy only the necessary OpenCV artifacts from the build stage
+#COPY --from=opencv_base /usr/local /usr/local
+COPY --from=opencv_base /usr/local/lib /usr/local/lib
+COPY --from=opencv_base /usr/local/include /usr/local/include
+COPY --from=opencv_base /usr/local/bin /usr/local/bin
+
+RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    wget
+
+# gcc
+RUN add-apt-repository ppa:ubuntu-toolchain-r/test -y
+
+RUN apt-get install -y gcc-11 g++-11
+
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 100
+
+
+# dependency
+RUN apt-get install -y \
+    git \
+    build-essential \
+    sudo \
+    curl \
+    zip \
+    libeigen3-dev \
+    libboost-all-dev \
+    libjsoncpp-dev \
+    libopengl-dev \
+    mesa-utils \
+    libglfw3-dev \
+    libglm-dev \
+    python3-pip \
+    python3-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libswresample-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# libtorch
+RUN cd / && \
+    wget https://download.pytorch.org/libtorch/cu118/libtorch-cxx11-abi-shared-with-deps-2.0.1%2Bcu118.zip -O libtorch-cu118.zip && \
+    unzip libtorch-cu118.zip && rm libtorch-cu118.zip
+ENV Torch_DIR /libtorch/share/cmake/Torch
+
+
+# Install CMake
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-Linux-x86_64.sh -O /cmake-3.22.1.sh && \
+    chmod +x /cmake-3.22.1.sh && \
+    /cmake-3.22.1.sh --skip-license --prefix=/usr/local
+
+
+COPY . /dev_ws/Photo-SLAM 
+WORKDIR /dev_ws/Photo-SLAM
+# Build the project
+RUN ./build.sh
+
+
+# Dev container arguments
+ARG USERNAME=devuser
+ARG UID=2000
+ARG GID=${UID}
+
+# Install extra tools for development
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    sudo \
+    clangd \
+    gdb \
+    gdbserver \
+    && apt clean && rm -rf /var/lib/apt/lists/*
+
+## Install required Python packages
+#RUN pip install --upgrade pip && \
+#pip install \
+#torch==2.1.2+cu118 \
+#torchvision==0.16.2+cu118 \
+#torchaudio==2.1.2+cu118 \
+#-f https://download.pytorch.org/whl/torch_stable.html \
+#evo \
+#numpy \
+#scipy \
+#scikit-image \
+#lpips \
+#pillow \
+#tqdm \
+#plyfile
+
+## Install submodules for rendering
+#RUN pip install submodules/simple-knn/ \
+#submodules/diff-gaussian-rasterization/
+## Install submodules for rendering
+#RUN pip install submodules/simple-knn/
+#RUN pip install submodules/diff-gaussian-rasterization/
+
+## Install conda
+#RUN apt-get update && apt-get install -y \
+#wget \
+#&& wget -qO- https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh | bash -s -- -b -p /opt/conda \
+#&& /opt/conda/bin/conda install -y conda \
+#&& rm -rf /var/lib/apt/lists/*
+
+## Add conda to PATH
+#ENV PATH=/opt/conda/bin:$PATH
+
+## Install compatible PyTorch and torchvision
+#RUN conda install -y pytorch==2.1.2 torchvision==0.16.2 pytorch-cuda=11.8 -c pytorch -c nvidia
+
+## Clone the Photo-SLAM-eval repository
+#RUN git clone https://github.com/HuajianUP/Photo-SLAM-eval.git
+
+## Install required Python packages
+#RUN pip install evo numpy scipy scikit-image lpips pillow tqdm plyfile
+
+## Install submodules for rendering
+#RUN pip install /Photo-SLAM-eval/submodules/simple-knn/ \
+#/Photo-SLAM-eval/submodules/diff-gaussian-rasterization/
+
+# Create the sudoers directory
+RUN mkdir -p /etc/sudoers.d
+
+# Create new user and home directory
+RUN groupadd --gid $GID $USERNAME \
+    && useradd --uid ${GID} --gid ${UID} --create-home ${USERNAME} \
+    && echo ${USERNAME} ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/${USERNAME} \
+    && chmod 0440 /etc/sudoers.d/${USERNAME} \
+    && mkdir -p /home/${USERNAME} \
+    && chown -R ${UID}:${GID} /home/${USERNAME} \
+    && chown -R ${UID}:${GID} /dev_ws
+
+# Set the user
+USER ${USERNAME}
