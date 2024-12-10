@@ -264,3 +264,10 @@ if(realsense2_FOUND)
         ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so
         ${realsense2_LIBRARY})
 endif()
+
+# Test GPU script
+add_executable(gpu_cuda_test src/test/gpu_memory_allocation_test.cpp)
+target_link_libraries(gpu_cuda_test
+    gaussian_viewer
+    gaussian_mapper
+    ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)

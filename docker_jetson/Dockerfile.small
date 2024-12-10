@@ -1,8 +1,8 @@
 # Stage 1: Use a pre-built OpenCV image with CUDA support
-FROM t4dashi/opencv-cuda:11.8.0-ubuntu22.04 AS opencv_base
+FROM t4dashi/opencv-cuda:11.4.0-jetpack AS opencv_base
 
 # Stage 2: Final Image
-FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04 AS dev
+FROM nvcr.io/nvidia/l4t-cuda:11.4.19-runtime AS dev
 
 #SHELL ["/bin/bash", "-c"]
 
@@ -49,26 +49,31 @@ RUN apt-get install -y \
     libswscale-dev \
     libswresample-dev \
     libssl-dev \
+    libopenblas-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # libtorch
-RUN cd / && \
-    wget https://download.pytorch.org/libtorch/cu118/libtorch-cxx11-abi-shared-with-deps-2.0.1%2Bcu118.zip -O libtorch-cu118.zip && \
-    unzip libtorch-cu118.zip && rm libtorch-cu118.zip
-ENV Torch_DIR /libtorch/share/cmake/Torch
-
+RUN python3 -m pip install --upgrade pip && \
+    export TORCH_INSTALL=https://developer.download.nvidia.cn/compute/redist/jp/v511/pytorch/torch-2.0.0+nv23.05-cp38-cp38-linux_aarch64.whl && \
+    python3 -m pip install --no-cache-dir $TORCH_INSTALL
+#ENV Torch_DIR /libtorch/share/cmake/Torch
 
 # Install CMake
-RUN wget https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-Linux-x86_64.sh -O /cmake-3.22.1.sh && \
-    chmod +x /cmake-3.22.1.sh && \
-    /cmake-3.22.1.sh --skip-license --prefix=/usr/local
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.26.4/cmake-3.26.4.tar.gz && \
+    tar -xvf cmake-3.26.4.tar.gz && cd cmake-3.26.4 && \
+    ./bootstrap && make -j$(nproc) && make install && \
+    cd .. && rm -rf cmake-3.26.4 cmake-3.26.4.tar.gz
 
+# Install cuda and cudnn
+RUN apt-get update && apt-get install -y \
+    libcudnn8-dev \
+    cuda-toolkit-11-4 \
+    build-essential \
+    cmake \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY . /dev_ws/Photo-SLAM 
 WORKDIR /dev_ws/Photo-SLAM
-# Build the project
-RUN ./build.sh
-
 
 # Dev container arguments
 ARG USERNAME=devuser
@@ -85,52 +90,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gdbserver \
     && apt clean && rm -rf /var/lib/apt/lists/*
 
-## Install required Python packages
-#RUN pip install --upgrade pip && \
-#pip install \
-#torch==2.1.2+cu118 \
-#torchvision==0.16.2+cu118 \
-#torchaudio==2.1.2+cu118 \
-#-f https://download.pytorch.org/whl/torch_stable.html \
-#evo \
-#numpy \
-#scipy \
-#scikit-image \
-#lpips \
-#pillow \
-#tqdm \
-#plyfile
-
-## Install submodules for rendering
-#RUN pip install submodules/simple-knn/ \
-#submodules/diff-gaussian-rasterization/
-## Install submodules for rendering
-#RUN pip install submodules/simple-knn/
-#RUN pip install submodules/diff-gaussian-rasterization/
-
-## Install conda
-#RUN apt-get update && apt-get install -y \
-#wget \
-#&& wget -qO- https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh | bash -s -- -b -p /opt/conda \
-#&& /opt/conda/bin/conda install -y conda \
-#&& rm -rf /var/lib/apt/lists/*
-
-## Add conda to PATH
-#ENV PATH=/opt/conda/bin:$PATH
-
-## Install compatible PyTorch and torchvision
-#RUN conda install -y pytorch==2.1.2 torchvision==0.16.2 pytorch-cuda=11.8 -c pytorch -c nvidia
-
-## Clone the Photo-SLAM-eval repository
-#RUN git clone https://github.com/HuajianUP/Photo-SLAM-eval.git
-
-## Install required Python packages
-#RUN pip install evo numpy scipy scikit-image lpips pillow tqdm plyfile
-
-## Install submodules for rendering
-#RUN pip install /Photo-SLAM-eval/submodules/simple-knn/ \
-#/Photo-SLAM-eval/submodules/diff-gaussian-rasterization/
-
 # Create the sudoers directory
 RUN mkdir -p /etc/sudoers.d
 
@@ -145,3 +104,11 @@ RUN groupadd --gid $GID $USERNAME \
 
 # Set the user
 USER ${USERNAME}
+
+# Set environment variables
+ENV Torch_DIR /usr/local/lib/python3.8/dist-packages/torch/share/cmake/Torch
+ENV PATH="/usr/local/cuda/bin:${PATH}"
+ENV LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
+
+# Build the project
+RUN ./build.sh

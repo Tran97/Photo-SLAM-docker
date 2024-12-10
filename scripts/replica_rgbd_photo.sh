@@ -10,8 +10,7 @@ mkdir -p $RESULT_PATH_OFFICE0
     ../cfg/ORB_SLAM3/RGB-D/Replica/office0.yaml \
     ../cfg/gaussian_mapper/RGB-D/Replica/replica_rgbd.yaml \
     ../../dataset/Replica/office0 \
-    $RESULT_PATH_OFFICE0 \
-    no_viewer
+    $RESULT_PATH_OFFICE0
     
 
 RESULT_PATH_OFFICE1="../../results/photo/replica$i/office1"

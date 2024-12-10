@@ -1,9 +1,8 @@
-version: "3.9"
 services:
   # Base image containing dependencies.
   dev:
-    image: t4dashi/photo_slam:dev
-    container_name: photo_slam_dev
+    image: t4dashi/photo_slam_jetson:dev
+    container_name: photo_slam_jetson_dev
     #build:
       #context: ..
       #dockerfile: ./docker/Dockerfile.small
