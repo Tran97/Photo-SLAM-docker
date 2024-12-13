@@ -1,8 +1,8 @@
 # Stage 1: Use a pre-built OpenCV image with CUDA support
-FROM t4dashi/opencv-cuda:11.8.0-ubuntu22.04 AS opencv_base
+FROM opencv-cuda AS opencv_base
 
 # Stage 2: Final Image
-FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04 AS dev
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04 AS dev
 
 #SHELL ["/bin/bash", "-c"]
 
@@ -12,6 +12,9 @@ COPY --from=opencv_base /usr/local/lib /usr/local/lib
 COPY --from=opencv_base /usr/local/include /usr/local/include
 COPY --from=opencv_base /usr/local/bin /usr/local/bin
 
+# Set noninteractive frontend for apt
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && apt-get install -y \
     software-properties-common \
     wget
@@ -19,11 +22,10 @@ RUN apt-get update && apt-get install -y \
 # gcc
 RUN add-apt-repository ppa:ubuntu-toolchain-r/test -y
 
-RUN apt-get install -y gcc-11 g++-11
+RUN apt-get install -y gcc-10 g++-10
 
-RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 100
-
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 100
 
 # dependency
 RUN apt-get install -y \
@@ -51,21 +53,38 @@ RUN apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Install ROS
+RUN sudo apt update
+RUN sudo apt install -y lsb-core curl
+RUN sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
+RUN curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
+RUN sudo apt update
+RUN sudo apt install -y python3-rosdep \
+                        python3-rosinstall \
+                        python3-rosinstall-generator \
+                        python3-wstool \
+                        python3-catkin-tools \
+                        build-essential
+RUN sudo apt install -y ros-noetic-ros-base \
+                        ros-noetic-tf \
+                        ros-noetic-roslint
+
+RUN sudo rosdep init
+RUN rosdep update
+
 # libtorch
 RUN cd / && \
     wget https://download.pytorch.org/libtorch/cu118/libtorch-cxx11-abi-shared-with-deps-2.0.1%2Bcu118.zip -O libtorch-cu118.zip && \
     unzip libtorch-cu118.zip && rm libtorch-cu118.zip
 ENV Torch_DIR /libtorch/share/cmake/Torch
 
-
 # Install CMake
-RUN wget https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-Linux-x86_64.sh -O /cmake-3.22.1.sh && \
-    chmod +x /cmake-3.22.1.sh && \
-    /cmake-3.22.1.sh --skip-license --prefix=/usr/local
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.27.5/cmake-3.27.5-Linux-x86_64.sh -O /cmake-3.27.5.sh && \
+    chmod +x /cmake-3.27.5.sh && \
+    /cmake-3.27.5.sh --skip-license --prefix=/usr/local
 
-
-COPY . /dev_ws/Photo-SLAM 
-WORKDIR /dev_ws/Photo-SLAM
+COPY ./photo_slam_ros /dev_ws/photo_slam_ros
+WORKDIR /dev_ws/photo_slam_ros
 # Build the project
 RUN ./build.sh
 
@@ -84,96 +103,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gdb \
     gdbserver \
     && apt clean && rm -rf /var/lib/apt/lists/*
-
-## Install required Python packages
-#RUN pip install --upgrade pip && \
-#pip install \
-#torch==2.1.2+cu118 \
-#torchvision==0.16.2+cu118 \
-#torchaudio==2.1.2+cu118 \
-#-f https://download.pytorch.org/whl/torch_stable.html \
-#evo \
-#numpy \
-#scipy \
-#scikit-image \
-#lpips \
-#pillow \
-#tqdm \
-#plyfile
-
-## Install submodules for rendering
-#RUN pip install submodules/simple-knn/ \
-#submodules/diff-gaussian-rasterization/
-## Install submodules for rendering
-#RUN pip install submodules/simple-knn/
-#RUN pip install submo## Install required Python packages
-#RUN pip install --upgrade pip && \
-#pip install \
-#torch==2.1.2+cu118 \
-#torchvision==0.16.2+cu118 \
-#torchaudio==2.1.2+cu118 \
-#-f https://download.pytorch.org/whl/torch_stable.html \
-#evo \
-#numpy \
-#scipy \
-#scikit-image \
-#lpips \
-#pillow \
-#tqdm \
-#plyfile
-
-## Install submodules for rendering
-#RUN pip install submodules/simple-knn/ \
-#submodules/diff-gaussian-rasterization/
-## Install submodules for rendering
-#RUN pip install submodules/simple-knn/
-#RUN pip install submodules/diff-gaussian-rasterization/
-
-## Install conda
-#RUN apt-get update && apt-get install -y \
-#wget \
-#&& wget -qO- https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh | bash -s -- -b -p /opt/conda \
-#&& /opt/conda/bin/conda install -y conda \
-#&& rm -rf /var/lib/apt/lists/*
-
-## Add conda to PATH
-#ENV PATH=/opt/conda/bin:$PATH
-
-## Install compatible PyTorch and torchvision
-#RUN conda install -y pytorch==2.1.2 torchvision==0.16.2 pytorch-cuda=11.8 -c pytorch -c nvidia
-
-## Clone the Photo-SLAM-eval repository
-#RUN git clone https://github.com/HuajianUP/Photo-SLAM-eval.git
-
-## Install required Python packages
-#RUN pip install evo numpy scipy scikit-image lpips pillow tqdm plyfile
-
-## Install submodules for rendering
-#RUN pip install /Photo-SLAM-eval/submodules/simple-knn/ \
-#/Photo-SLAM-eval/submodules/diff-gaussian-rasterization/dules/diff-gaussian-rasterization/
-
-## Install conda
-#RUN apt-get update && apt-get install -y \
-#wget \
-#&& wget -qO- https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh | bash -s -- -b -p /opt/conda \
-#&& /opt/conda/bin/conda install -y conda \
-#&& rm -rf /var/lib/apt/lists/*
-
-## Add conda to PATH
-#ENV PATH=/opt/conda/bin:$PATH
-
-## Install compatible PyTorch and torchvision
-#RUN conda install -y pytorch==2.1.2 torchvision==0.16.2 pytorch-cuda=11.8 -c pytorch -c nvidia
-
-## Clone the Photo-SLAM-eval repository
-#RUN git clone https://github.com/HuajianUP/Photo-SLAM-eval.git
-
-## Install required Python packages
-#RUN pip install evo numpy scipy scikit-image lpips pillow tqdm plyfile
-
-## Install submodules for rendering
-#RUN pip install /Photo-SLAM-eval/submodules/simple-knn/ \
-#/Photo-SLAM-eval/submodules/diff-gaussian-rasterization/
 
 # Create the sudoers directory
 RUN mkdir -p /etc/sudoers.d
