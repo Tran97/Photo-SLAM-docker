@@ -1,5 +1,6 @@
 # Steps to build:
 
+1. Have [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 1. cd `Photo-SLAM-docker`
 1. Build the opencv base: `docker build -t t4dashi/opencv-cuda:11.4.0-jetpack -f  ./docker_jetson/Dockerfile.opencv .`
 1. Build the photo-slam image (using some of the binaries from the opencv image) `docker build -t t4dashi/photo_slam_jetson:dev -f  ./docker_jetson/Dockerfile.small .`
@@ -16,6 +17,11 @@ Downgraded container toolkit to 1.16.2 with the following steps
 
 ```bash
 sudo apt purge nvidia-container-toolkit
+```
+
+
+
+```bash
 sudo apt-get install -y --allow-downgrades nvidia-container-toolkit-base=1.16.2-1
 sudo apt-get install -y --allow-downgrades nvidia-container-toolkit=1.16.2-1
 ```
