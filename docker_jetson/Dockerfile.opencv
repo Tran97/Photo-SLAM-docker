@@ -53,7 +53,7 @@ RUN apt-get update && apt-get install -y \
     cmake \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Build and install OpenCV with CUDA
+# Build and install OpenCV with CUDA (DCUDA_ARCH_BIN="8.7" for Jetson AGX ORIN, "7.2" for Jetson Xavier)
 RUN mkdir /opencv/opencv-4.7.0/build && cd /opencv/opencv-4.7.0/build && \
     cmake -DCMAKE_BUILD_TYPE=RELEASE \
           -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -61,7 +61,7 @@ RUN mkdir /opencv/opencv-4.7.0/build && cd /opencv/opencv-4.7.0/build && \
           -DWITH_CUDNN=ON \
           -DOPENCV_DNN_CUDA=ON \
           -DWITH_NVCUVID=OFF \
-          -DCUDA_ARCH_BIN="7.2" \
+          -DCUDA_ARCH_BIN="8.7" \
           -DOPENCV_EXTRA_MODULES_PATH=/opencv/opencv_contrib-4.7.0/modules \
           -DBUILD_TIFF=ON \
           -DBUILD_ZLIB=ON \
