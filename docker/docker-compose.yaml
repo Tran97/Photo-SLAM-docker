@@ -41,6 +41,7 @@ services:
       - ../examples:/dev_ws/Photo-SLAM/examples:rw
       - ../ORB-SLAM3/src:/dev_ws/Photo-SLAM/ORB-SLAM3/src:rw
       - ../ORB-SLAM3/include:/dev_ws/Photo-SLAM/ORB-SLAM3/include:rw
+      - ../ORB-SLAM3/CMakeLists.txt:/dev_ws/Photo-SLAM/ORB-SLAM3/CMakeLists.txt:rw
 
       - ../../results:/dev_ws/results:rw
       - ../../thesis_utils/download_benchmark_data/dataset:/dev_ws/dataset:r

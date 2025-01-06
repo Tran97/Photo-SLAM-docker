@@ -42,6 +42,7 @@ MESSAGE(${OpenCV_VERSION})
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(realsense2)
 
+
 include_directories(
 ${PROJECT_SOURCE_DIR}
 ${PROJECT_SOURCE_DIR}/include
@@ -112,15 +113,36 @@ include/SerializationUtils.h
 include/Config.h
 include/Settings.h)
 
+
+# Add required subdirectories
+add_subdirectory(Thirdparty/DBoW2)
 add_subdirectory(Thirdparty/g2o)
+add_subdirectory(Thirdparty/Sophus)
+
 
 target_link_libraries(${PROJECT_NAME}
 ${OpenCV_LIBS}
 ${EIGEN3_LIBS}
-${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
-${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
+DBoW2
+g2o
+#Sophus
+#${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
+#${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
 -lboost_serialization
 -lcrypto
+)
+
+# Custom commands for Vocabulary extraction
+add_custom_command(
+    OUTPUT ${CMAKE_SOURCE_DIR}/Vocabulary/ORBvoc.txt
+    COMMAND ${CMAKE_COMMAND} -E tar xzf ${CMAKE_SOURCE_DIR}/Vocabulary/ORBvoc.txt.tar.gz
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/Vocabulary
+    COMMENT "Uncompressing vocabulary..."
+    DEPENDS ${CMAKE_SOURCE_DIR}/Vocabulary/ORBvoc.txt.tar.gz
+)
+
+add_custom_target(VocabularyExtraction ALL
+    DEPENDS ${CMAKE_SOURCE_DIR}/Vocabulary/ORBvoc.txt
 )
 
 # If RealSense SDK is found the library is added and its examples compiled
