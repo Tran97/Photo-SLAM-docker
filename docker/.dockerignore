@@ -19,9 +19,12 @@ coverage
 
 # Docker files themselves
 docker/
+docker_jetson/
 
 # Development tools
 .vscode
 .idea
 *.swp
 .devcontainer/
+
+*.md

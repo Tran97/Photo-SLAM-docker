@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
-project(photo-slam LANGUAGES CXX CUDA)
+cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
+project(photo_slam LANGUAGES CXX CUDA)
 
 if(NOT CMAKE_BUILD_TYPE)
     # set(CMAKE_BUILD_TYPE Debug)
@@ -23,6 +23,25 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS} -pthread")
 # set(ENV{CUDA_LAUNCH_BLOCKING} 1)
 # set(ENV{TORCH_USE_CUDA_DSA} 1)
 
+
+## Find catkin macros and libraries
+## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
+## is used, also find other catkin packages
+find_package(catkin REQUIRED COMPONENTS
+  cv_bridge
+  image_transport
+  geometry_msgs
+  sensor_msgs
+  nav_msgs
+  std_msgs
+  message_filters
+  roscpp
+  rospy
+  tf
+  tf2
+  message_generation
+)
+
 find_package(CUDA REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV 4 REQUIRED)
@@ -34,18 +53,38 @@ find_package(glfw3 REQUIRED)
 
 find_package(realsense2)
 
+add_service_files(
+  FILES
+  SaveMap.srv
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
+
+catkin_package (
+  CATKIN_DEPENDS roscpp rospy std_msgs cv_bridge image_transport tf sensor_msgs dynamic_reconfigure message_runtime
+  LIBRARIES {PROJECT_NAME} libDBoW2 libg2o
+)
+
+
 set(ORB_SLAM3_SOURCE_DIR "${PROJECT_SOURCE_DIR}/ORB-SLAM3")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 
 include_directories(
     ${PROJECT_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}/include
     ${ORB_SLAM3_SOURCE_DIR}
     ${ORB_SLAM3_SOURCE_DIR}/include
     ${ORB_SLAM3_SOURCE_DIR}/include/CameraModels
     ${ORB_SLAM3_SOURCE_DIR}/Thirdparty/Sophus
     ${EIGEN3_INCLUDE_DIR}
-    ${OPENGL_INCLUDE_DIR})
+    ${OPENGL_INCLUDE_DIR}
+    ${Pangolin_INCLUDE_DIRS}
+    ${catkin_INCLUDE_DIRS}
+    )
 
 ##################################################################################
 ##  Build the gaussian splatting component libraries to ${PROJECT_SOURCE_DIR}/lib
@@ -187,67 +226,6 @@ target_link_libraries(view_result
     gaussian_viewer
     gaussian_mapper)
 
-##################################################################################
-##  Build the mapping examples to ${PROJECT_SOURCE_DIR}/bin
-##################################################################################
-
-# Kitti rgbd
-add_executable(kitti_rgbd examples/kitti_rgbd.cpp)
-target_link_libraries(kitti_rgbd
-    gaussian_viewer    
-    gaussian_mapper
-    ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)
-
-# Kitti rgbd/stereo
-add_executable(kitti_stereo examples/kitti_rgbd_stereo.cpp)
-target_link_libraries(kitti_stereo
-    gaussian_viewer    
-    gaussian_mapper
-    ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)
-
-
-# Replica Monocular
-add_executable(replica_mono examples/replica_mono.cpp)
-target_link_libraries(replica_mono
-    gaussian_viewer    
-    gaussian_mapper
-    ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)
-
-# Replica rgbd
-add_executable(replica_rgbd examples/replica_rgbd.cpp)
-target_link_libraries(replica_rgbd
-    gaussian_viewer    
-    gaussian_mapper
-    ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)
-
-# TUM Monocular
-add_executable(tum_mono examples/tum_mono.cpp)
-target_link_libraries(tum_mono
-    gaussian_viewer    
-    gaussian_mapper
-    ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)
-
-# TUM RGBD
-add_executable(tum_rgbd examples/tum_rgbd.cpp)
-target_link_libraries(tum_rgbd
-    gaussian_viewer    
-    gaussian_mapper
-    ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)
-
-# TUM RGBD
-add_executable(tum_rgbd_orb examples/tum_rgbd_orb.cpp)
-target_link_libraries(tum_rgbd_orb
-    gaussian_viewer
-    gaussian_mapper
-    ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)
-
-
-# EuRoC Stereo
-add_executable(euroc_stereo examples/euroc_stereo.cpp)
-target_link_libraries(euroc_stereo
-    gaussian_viewer    
-    gaussian_mapper
-    ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)
 
 ##################################################################################
 ##  Build the mapping examples to ${PROJECT_SOURCE_DIR}/bin
@@ -266,8 +244,33 @@ if(realsense2_FOUND)
 endif()
 
 # Test GPU script
-add_executable(gpu_cuda_test src/test/gpu_memory_allocation_test.cpp)
-target_link_libraries(gpu_cuda_test
-    gaussian_viewer
-    gaussian_mapper
-    ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)
+#add_executable(gpu_cuda_test src/test/gpu_memory_allocation_test.cpp)
+#target_link_libraries(gpu_cuda_test
+    #gaussian_viewer
+    #gaussian_mapper
+    #${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)
+
+
+
+##################################################################################
+##  Build the ROS examples to ${PROJECT_SOURCE_DIR}/bin
+##################################################################################
+
+## ROS node
+add_executable(ros_rgbd
+  src/ros_rgbd.cc
+  src/common.cc
+)
+target_link_libraries(ros_rgbd
+    ${catkin_LIBRARIES}
+    ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so
+    ${ORB_SLAM3_SOURCE_DIR}/lib/libDBoW2.so
+    ${ORB_SLAM3_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
+)
+
+
+# Install the maps directory
+install(
+  DIRECTORY maps/
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/maps
+)

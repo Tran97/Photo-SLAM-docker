@@ -1,17 +1,15 @@
-version: "3.9"
 services:
   # Base image containing dependencies.
   dev:
-    image: t4dashi/photo_slam:dev
-    container_name: photo_slam_dev
-    #build:
-      #context: ..
-      #dockerfile: ./docker/Dockerfile.small
-      #args:
-        #- UID=${UID:-2000}
-        #- GID=${UID:-2000}
-        #- USERNAME=${USERNAME:-devuser}
-      #target: dev
+    image: photo_slam_ros:latest
+    container_name: photo_slam_ros
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.small
+      args:
+        - UID=${UID:-2000}
+        - GID=${UID:-2000}
+        - USERNAME=${USERNAME:-devuser}
     # Interactive shell
     stdin_open: true
     tty: true
@@ -32,19 +30,12 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ${XAUTHORITY:-$HOME/.Xauthority}:/root/.Xauthority
       - /dev/dri:/dev/dri:rw
-
-      - ../src:/dev_ws/Photo-SLAM/src:rw
-      - ../cfg:/dev_ws/Photo-SLAM/cfg:rw
-      - ../include:/dev_ws/Photo-SLAM/include:rw
-      - ../CMakeLists.txt:/dev_ws/Photo-SLAM/CMakeLists.txt:rw
-      - ../scripts:/dev_ws/Photo-SLAM/scripts:rw
-      - ../examples:/dev_ws/Photo-SLAM/examples:rw
-      - ../ORB-SLAM3/src:/dev_ws/Photo-SLAM/ORB-SLAM3/src:rw
-      - ../ORB-SLAM3/include:/dev_ws/Photo-SLAM/ORB-SLAM3/include:rw
-      - ../ORB-SLAM3/CMakeLists.txt:/dev_ws/Photo-SLAM/ORB-SLAM3/CMakeLists.txt:rw
-
-      - ../../results:/dev_ws/results:rw
-      - ../../thesis_utils/download_benchmark_data/dataset:/dev_ws/dataset:r
+      - ../ORB-SLAM3/src:/overlay_ws/src/photo_slam/ORB-SLAM3/src:rw
+      - ../ORB-SLAM3/include:/overlay_ws/src/photo_slam/ORB-SLAM3/include:rw
+      - ../include:/overlay_ws/src/photo_slam/include:rw
+      - ../src:/overlay_ws/src/photo_slam/src:rw
+      - ../CMakeLists.txt:/overlay_ws/src/photo_slam/CMakeLists.txt:rw
+      - ../package.xml:/overlay_ws/src/photo_slam/package.xml:rw
 
     deploy:
       resources:

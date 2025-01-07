@@ -38,9 +38,10 @@ namespace ORB_SLAM3 {
 Verbose::eLevel Verbose::th = Verbose::VERBOSITY_NORMAL;
 
 System::System(const string &strVocFile, const string &strSettingsFile,
-               const eSensor sensor, const int initFr,
-               const string &strSequence)
-    : mSensor(sensor), mpViewer(static_cast<Viewer *>(NULL)), mbReset(false),
+               const eSensor sensor, const std::string &loadAtlasFromFile,
+               const int initFr, const string &strSequence)
+    : mSensor(sensor), mStrLoadAtlasFromFile(loadAtlasFromFile),
+      mpViewer(static_cast<Viewer *>(NULL)), mbReset(false),
       mbResetActiveMap(false), mbActivateLocalizationMode(false),
       mbDeactivateLocalizationMode(false), mbShutDown(false) {
   // Output welcome message
@@ -187,7 +188,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
 
   // Initialize the Tracking thread
   //(it will live in the main thread of execution, the one that called this
-  //constructor)
+  // constructor)
   cout << "Seq. Name: " << strSequence << endl;
   mpTracker = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
                            mpAtlas, mpKeyFrameDatabase, strSettingsFile,
@@ -1361,6 +1362,19 @@ vector<cv::KeyPoint> System::GetTrackedKeyPointsUn() {
   return mTrackedKeyPointsUn;
 }
 
+vector<cv::KeyPoint> System::GetTrackedKeyPoints() {
+  unique_lock<mutex> lock(mMutexState);
+  return mTrackedKeyPoints;
+}
+
+cv::Mat System::GetCurrentFrame() { return mpFrameDrawer->DrawFrame(); }
+
+Sophus::SE3f System::GetCamTwc() { return mpTracker->GetCamTwc(); }
+
+Sophus::SE3f System::GetImuTwb() { return mpTracker->GetImuTwb(); }
+
+Eigen::Vector3f System::GetImuVwb() { return mpTracker->GetImuVwb(); }
+
 double System::GetTimeFromIMUInit() {
   double aux = mpLocalMapper->GetCurrKFTime() - mpLocalMapper->mFirstTs;
   if ((aux > 0.) && mpAtlas->isImuInitialized())
@@ -1427,44 +1441,54 @@ FrameDrawer *System::getFrameDrawer() { return this->mpFrameDrawer; }
 
 MapDrawer *System::getMapDrawer() { return this->mpMapDrawer; }
 
-void System::SaveAtlas(int type) {
-  if (!mStrSaveAtlasToFile.empty()) {
-    // clock_t start = clock();
+bool System::SaveAtlas(int type) {
+  try {
+    if (!mStrSaveAtlasToFile.empty()) {
+      // clock_t start = clock();
 
-    // Save the current session
-    mpAtlas->PreSave();
+      // Save the current session
+      mpAtlas->PreSave();
 
-    string pathSaveFileName = "./";
-    pathSaveFileName = pathSaveFileName.append(mStrSaveAtlasToFile);
-    pathSaveFileName = pathSaveFileName.append(".osa");
+      string pathSaveFileName = "./";
+      pathSaveFileName = pathSaveFileName.append(mStrSaveAtlasToFile);
+      pathSaveFileName = pathSaveFileName.append(".osa");
 
-    string strVocabularyChecksum =
-        CalculateCheckSum(mStrVocabularyFilePath, TEXT_FILE);
-    std::size_t found = mStrVocabularyFilePath.find_last_of("/\\");
-    string strVocabularyName = mStrVocabularyFilePath.substr(found + 1);
+      string strVocabularyChecksum =
+          CalculateCheckSum(mStrVocabularyFilePath, TEXT_FILE);
+      std::size_t found = mStrVocabularyFilePath.find_last_of("/\\");
+      string strVocabularyName = mStrVocabularyFilePath.substr(found + 1);
 
-    if (type == TEXT_FILE) // File text
-    {
-      cout << "Starting to write the save text file " << endl;
-      std::remove(pathSaveFileName.c_str());
-      std::ofstream ofs(pathSaveFileName, std::ios::binary);
-      boost::archive::text_oarchive oa(ofs);
+      if (type == TEXT_FILE) // File text
+      {
+        cout << "Starting to write the save text file to "
+             << pathSaveFileName.c_str() << endl;
+        std::remove(pathSaveFileName.c_str());
+        std::ofstream ofs(pathSaveFileName, std::ios::binary);
+        boost::archive::text_oarchive oa(ofs);
 
-      oa << strVocabularyName;
-      oa << strVocabularyChecksum;
-      oa << mpAtlas;
-      cout << "End to write the save text file" << endl;
-    } else if (type == BINARY_FILE) // File binary
-    {
-      cout << "Starting to write the save binary file" << endl;
-      std::remove(pathSaveFileName.c_str());
-      std::ofstream ofs(pathSaveFileName, std::ios::binary);
-      boost::archive::binary_oarchive oa(ofs);
-      oa << strVocabularyName;
-      oa << strVocabularyChecksum;
-      oa << mpAtlas;
-      cout << "End to write save binary file" << endl;
+        oa << strVocabularyName;
+        oa << strVocabularyChecksum;
+        oa << mpAtlas;
+        cout << "End to write the save text file" << endl;
+      } else if (type == BINARY_FILE) // File binary
+      {
+        cout << "Starting to write the save binary file to "
+             << pathSaveFileName.c_str() << endl;
+        std::remove(pathSaveFileName.c_str());
+        std::ofstream ofs(pathSaveFileName, std::ios::binary);
+        boost::archive::binary_oarchive oa(ofs);
+        oa << strVocabularyName;
+        oa << strVocabularyChecksum;
+        oa << mpAtlas;
+        cout << "End to write save binary file" << endl;
+      }
     }
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return false;
+  } catch (...) {
+    std::cerr << "Unknown exception" << std::endl;
+    return false;
   }
 }
 
@@ -1565,6 +1589,11 @@ string System::CalculateCheckSum(string filename, int type) {
   return checksum;
 }
 
+vector<MapPoint *> System::GetAllMapPoints() {
+  Map *pActiveMap = mpAtlas->GetCurrentMap();
+  return pActiveMap->GetAllMapPoints();
+}
+
 cv::Mat System::preprocessImage(const cv::Mat &src) { return src.clone(); }
 
 std::vector<Sophus::SE3f> System::getPoses() {
@@ -1601,7 +1630,7 @@ std::vector<Sophus::SE3f> System::getPoses() {
       pKF = pKF->GetParent();
     }
     //*lit is the relative transformation from the current frame to its
-    //reference keyframe. By multiplying it with Trw, which transforms the
+    // reference keyframe. By multiplying it with Trw, which transforms the
     // reference keyframe to the world frame, we obtain Tcw, the pose of the
     // current frame relative to the world.
     T_ref = T_ref * pKF->GetPose();
@@ -1637,5 +1666,40 @@ std::vector<Sophus::SE3f> System::getPoses() {
   }
   return poses;
 }
+vector<Sophus::SE3f> System::GetAllKeyframePoses() {
+  vector<KeyFrame *> vpKFs = mpAtlas->GetAllKeyFrames();
+  sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
 
+  vector<Sophus::SE3f> vKFposes;
+
+  for (size_t i = 0; i < vpKFs.size(); i++) {
+    KeyFrame *pKF = vpKFs[i];
+
+    if (pKF->isBad())
+      continue;
+
+    // Twb can be world frame to cam0 frame (without IMU) or body in world frame
+    // (with IMU)
+    Sophus::SE3f Twb;
+    if (mSensor == IMU_MONOCULAR || mSensor == IMU_STEREO ||
+        mSensor == IMU_RGBD) // with IMU
+      Twb = vpKFs[i]->GetImuPose();
+    else // without IMU
+      Twb = vpKFs[i]->GetPoseInverse();
+
+    vKFposes.push_back(Twb);
+  }
+
+  return vKFposes;
+}
+
+bool System::SaveMap(const string &filename) {
+  mStrSaveAtlasToFile = filename;
+  if (!mStrSaveAtlasToFile.empty()) {
+    Verbose::PrintMess("Atlas saving to file " + mStrSaveAtlasToFile,
+                       Verbose::VERBOSITY_NORMAL);
+    return SaveAtlas(FileType::BINARY_FILE);
+  }
+  return false;
+}
 } // namespace ORB_SLAM3
