@@ -3,6 +3,10 @@
  * Adapted from ORB-SLAM3: Examples/ROS/src/ros_rgbd.cc
  *
  */
+#include <torch/torch.h>
+#include "include/gaussian_mapper.h"
+#include "viewer/imgui_viewer.h"
+#include <thread>
 
 #include "common.h"
 #include <sys/stat.h>
@@ -75,11 +79,36 @@ int main(int argc, char **argv) {
   node_handler.param<bool>(node_name + "/enable_pangolin", enable_pangolin,
                            true);
 
+  // Device
+  torch::DeviceType device_type;
+  if (torch::cuda::is_available()) {
+    std::cout << "CUDA available! Training on GPU." << std::endl;
+    device_type = torch::kCUDA;
+  } else {
+    std::cout << "Training on CPU." << std::endl;
+    device_type = torch::kCPU;
+  }
+
   // Create SLAM system. It initializes all system threads and gets ready to
   // process frames.
   sensor_type = ORB_SLAM3::System::RGBD;
-  pSLAM = new ORB_SLAM3::System(voc_file, settings_file, sensor_type,
+  std::shared_ptr<ORB_SLAM3::System> pSLAM = std::make_shared<ORB_SLAM3::System>(voc_file, settings_file, sensor_type,
                                 load_atlas_from_file, enable_pangolin);
+
+  // Create GaussianMapper
+  std::filesystem::path gaussian_cfg_path(argv[3]);
+  std::shared_ptr<GaussianMapper> pGausMapper =
+      std::make_shared<GaussianMapper>(pSLAM, gaussian_cfg_path, output_dir, 0,
+                                       device_type);
+  std::thread training_thd(&GaussianMapper::run, pGausMapper.get());
+
+  // Create Gaussian Viewer
+  std::thread viewer_thd;
+  std::shared_ptr<ImGuiViewer> pViewer;
+  if (use_viewer) {
+    pViewer = std::make_shared<ImGuiViewer>(pSLAM, pGausMapper);
+    viewer_thd = std::thread(&ImGuiViewer::run, pViewer.get());
+  }
 
   ImageGrabber igb;
 
@@ -101,6 +130,9 @@ int main(int argc, char **argv) {
 
   // Stop all threads
   pSLAM->Shutdown();
+  training_thd.join();
+  if (use_viewer)
+    viewer_thd.join();
   ros::shutdown();
 
   return 0;

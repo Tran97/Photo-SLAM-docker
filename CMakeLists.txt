@@ -52,7 +52,8 @@ find_package(glm REQUIRED)
 find_package(glfw3 REQUIRED)
 
 find_package(realsense2)
-
+message(STATUS "OpenCV include dirs: ${OpenCV_INCLUDE_DIRS}")
+message(STATUS "OpenCV libraries: ${OpenCV_LIBRARIES}")
 add_service_files(
   FILES
   SaveMap.srv
@@ -243,14 +244,6 @@ if(realsense2_FOUND)
         ${realsense2_LIBRARY})
 endif()
 
-# Test GPU script
-#add_executable(gpu_cuda_test src/test/gpu_memory_allocation_test.cpp)
-#target_link_libraries(gpu_cuda_test
-    #gaussian_viewer
-    #gaussian_mapper
-    #${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so)
-
-
 
 ##################################################################################
 ##  Build the ROS examples to ${PROJECT_SOURCE_DIR}/bin
@@ -266,6 +259,8 @@ target_link_libraries(ros_rgbd
     ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so
     ${ORB_SLAM3_SOURCE_DIR}/lib/libDBoW2.so
     ${ORB_SLAM3_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
+    "${TORCH_LIBRARIES}"
+    ${OpenCV_LIBRARIES}
 )
 
 
