@@ -31,13 +31,23 @@ endif()
 
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 
-find_package(OpenCV 4.4)
-   if(NOT OpenCV_FOUND)
-      message(FATAL_ERROR "OpenCV > 4.4 not found.")
-   endif()
+#find_package(OpenCV 4.4)
+   #if(NOT OpenCV_FOUND)
+      #message(FATAL_ERROR "OpenCV > 4.4 not found.")
+   #endif()
 
-MESSAGE("OPENCV VERSION:")
-MESSAGE(${OpenCV_VERSION})
+#MESSAGE("OPENCV VERSION:")
+#MESSAGE(${OpenCV_VERSION})
+
+
+set(OpenCV_DIR "/usr/local/lib/cmake/opencv4")
+find_package(OpenCV 4 REQUIRED NO_DEFAULT_PATH)
+
+if(NOT OpenCV_FOUND)
+    message(FATAL_ERROR "Could not find OpenCV 4 in /usr/local/lib/cmake/opencv4")
+endif()
+
+
 
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(realsense2)

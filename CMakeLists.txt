@@ -44,7 +44,8 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(CUDA REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(OpenCV 4 REQUIRED)
+find_package(OpenCV REQUIRED PATHS /usr/local/lib/cmake/opencv4 NO_DEFAULT_PATH)
+#find_package(OpenCV 4 REQUIRED)
 find_package(jsoncpp REQUIRED)
 
 find_package(OpenGL REQUIRED)
@@ -52,8 +53,6 @@ find_package(glm REQUIRED)
 find_package(glfw3 REQUIRED)
 
 find_package(realsense2)
-message(STATUS "OpenCV include dirs: ${OpenCV_INCLUDE_DIRS}")
-message(STATUS "OpenCV libraries: ${OpenCV_LIBRARIES}")
 add_service_files(
   FILES
   SaveMap.srv
@@ -250,6 +249,19 @@ endif()
 ##################################################################################
 
 ## ROS node
+add_executable(ros_rgbd_orb
+  src/ros_rgbd_orb.cc
+  src/common.cc
+)
+target_link_libraries(ros_rgbd_orb
+    ${catkin_LIBRARIES}
+    ${ORB_SLAM3_SOURCE_DIR}/lib/libORB_SLAM3.so
+    ${ORB_SLAM3_SOURCE_DIR}/lib/libDBoW2.so
+    ${ORB_SLAM3_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
+    "${TORCH_LIBRARIES}"
+    gaussian_viewer
+    gaussian_mapper
+)
 add_executable(ros_rgbd
   src/ros_rgbd.cc
   src/common.cc
@@ -260,7 +272,8 @@ target_link_libraries(ros_rgbd
     ${ORB_SLAM3_SOURCE_DIR}/lib/libDBoW2.so
     ${ORB_SLAM3_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
     "${TORCH_LIBRARIES}"
-    ${OpenCV_LIBRARIES}
+    gaussian_viewer
+    gaussian_mapper
 )
 
 

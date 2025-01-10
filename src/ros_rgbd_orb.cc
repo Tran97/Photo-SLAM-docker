@@ -3,11 +3,6 @@
  * Adapted from ORB-SLAM3: Examples/ROS/src/ros_rgbd.cc
  *
  */
-#include "include/gaussian_mapper.h"
-#include "viewer/imgui_viewer.h"
-#include <filesystem>
-#include <thread>
-#include <torch/torch.h>
 
 #include "common.h"
 #include <sys/stat.h>
@@ -40,30 +35,17 @@ int main(int argc, char **argv) {
   ros::NodeHandle node_handler;
   image_transport::ImageTransport image_transport(node_handler);
 
-  std::string voc_file, settings_file, output_directory, gaussian_config_path;
+  std::string voc_file, settings_file;
   node_handler.param<std::string>(node_name + "/voc_file", voc_file,
                                   "file_not_set");
   node_handler.param<std::string>(node_name + "/settings_file", settings_file,
                                   "file_not_set");
-  node_handler.param<std::string>(node_name + "/output_directory",
-                                  output_directory, "dir_not_set");
-  node_handler.param<std::string>(node_name + "/gaussian_config_path",
-                                  gaussian_config_path, "file_not_set");
 
-  if (voc_file == "file_not_set" || settings_file == "file_not_set" ||
-      output_directory == "dir_not_set" ||
-      gaussian_config_path == "file_not_set") {
-    ROS_ERROR("Please provide voc_file, settings_file, output_directory and "
-              "gaussian_config_path in the launch file");
+  if (voc_file == "file_not_set" || settings_file == "file_not_set") {
+    ROS_ERROR("Please provide voc_file and settings_file in the launch file");
     ros::shutdown();
     return 1;
   }
-
-  if (output_directory.back() != '/')
-    output_directory += "/";
-  std::filesystem::path output_dir(output_directory);
-
-  std::filesystem::path gaussian_cfg_path(gaussian_config_path);
 
   std::string load_atlas_from_file;
   node_handler.param<std::string>(node_name + "/load_atlas_from_file",
@@ -93,43 +75,15 @@ int main(int argc, char **argv) {
   node_handler.param<bool>(node_name + "/enable_pangolin", enable_pangolin,
                            true);
 
-  bool enable_gaussian_viewer;
-  node_handler.param<bool>(node_name + "/enable_gaussian_viewer",
-                           enable_gaussian_viewer, true);
-  // Device
-  torch::DeviceType device_type;
-  if (torch::cuda::is_available()) {
-    ROS_INFO("CUDA available! Training on GPU.");
-    device_type = torch::kCUDA;
-  } else {
-    ROS_INFO("Training on CPU.");
-    device_type = torch::kCPU;
-  }
-
   // Create SLAM system. It initializes all system threads and gets ready to
   // process frames.
-  ROS_INFO("Initializing frontend.");
   sensor_type = ORB_SLAM3::System::RGBD;
+  // pSLAM = new ORB_SLAM3::System(voc_file, settings_file, sensor_type,
+  // load_atlas_from_file, enable_pangolin);
   std::shared_ptr<ORB_SLAM3::System> pSLAM =
       std::make_shared<ORB_SLAM3::System>(voc_file, settings_file, sensor_type,
                                           load_atlas_from_file,
                                           enable_pangolin);
-
-  // ROS_INFO("Initializing Gaussian mapper.");
-  //// Create GaussianMapper
-  // std::shared_ptr<GaussianMapper> pGausMapper =
-  // std::make_shared<GaussianMapper>(pSLAM, gaussian_cfg_path, output_dir, 0,
-  // device_type);
-  // std::thread training_thd(&GaussianMapper::run, pGausMapper.get());
-
-  // Create Gaussian Viewer
-  // if (enable_gaussian_viewer) {
-  // ROS_INFO("Initializing Gaussian viewer.");
-  // std::thread viewer_thd;
-  // std::shared_ptr<ImGuiViewer> pViewer;
-  // pViewer = std::make_shared<ImGuiViewer>(pSLAM, pGausMapper);
-  // viewer_thd = std::thread(&ImGuiViewer::run, pViewer.get());
-  //}
 
   ImageGrabber igb;
 
@@ -151,9 +105,6 @@ int main(int argc, char **argv) {
 
   // Stop all threads
   pSLAM->Shutdown();
-  // training_thd.join();
-  //  if (enable_gaussian_viewer)
-  //  viewer_thd.join();
   ros::shutdown();
 
   return 0;
@@ -182,52 +133,16 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr &msgRGB,
     return;
   }
 
-  // float imageScale = pSLAM->GetImageScale();
+  float imageScale = pSLAM->GetImageScale();
   cv::Mat imRGB = cv_ptrRGB->image;
   cv::Mat imD = cv_ptrD->image;
-  // if (imageScale != 1.f) {
-  // int width = imRGB.cols * imageScale;
-  // int height = imRGB.rows * imageScale;
-  // cv::resize(imRGB, imRGB, cv::Size(width, height));
-  // cv::resize(imD, imD, cv::Size(width, height));
+  if (imageScale != 1.f) {
+    int width = imRGB.cols * imageScale;
+    int height = imRGB.rows * imageScale;
+    cv::resize(imRGB, imRGB, cv::Size(width, height));
+    cv::resize(imD, imD, cv::Size(width, height));
 
-  //
-  // 1. Basic checks for empty images
-  //
-  if (imRGB.empty()) {
-    ROS_ERROR("Received EMPTY RGB image in GrabRGBD. Skipping frame...");
-    return;
-  }
-  if (imD.empty()) {
-    ROS_ERROR("Received EMPTY Depth image in GrabRGBD. Skipping frame...");
-    return;
-  }
-
-  //
-  // 2. Debug prints: type, size, channels
-  //
-  //  - If you want to map OpenCV's numeric type to a string, you can do a small
-  //  helper function,
-  //    or simply log the numeric type. For reference: CV_8UC3 = 16, CV_16UC1 =
-  //    2, CV_32FC1 = 5, etc.
-  //
-  ROS_DEBUG_STREAM("RGB image: type="
-                   << imRGB.type() << ", channels=" << imRGB.channels()
-                   << ", size=" << imRGB.cols << "x" << imRGB.rows);
-  ROS_DEBUG_STREAM("Depth image: type="
-                   << imD.type() << ", channels=" << imD.channels()
-                   << ", size=" << imD.cols << "x" << imD.rows);
-
-  //
-  // 3. (Optional) Check expected Depth type
-  //    Typical ORB-SLAM3 RGB-D pipelines expect 16-bit or 32-bit float depth.
-  //
-  if (imD.type() != CV_16UC1 && imD.type() != CV_32FC1) {
-    ROS_ERROR_STREAM("Depth image type is NOT CV_16UC1 or CV_32FC1. Got type="
-                     << imD.type() << ". Aborting frame.");
-    return;
-  }
-  //} // ORB-SLAM3 runs in TrackRGBD()
+  } // ORB-SLAM3 runs in TrackRGBD()
   Sophus::SE3f Tcw = pSLAM->TrackRGBD(cv_ptrRGB->image, cv_ptrD->image,
                                       cv_ptrRGB->header.stamp.toSec());
 

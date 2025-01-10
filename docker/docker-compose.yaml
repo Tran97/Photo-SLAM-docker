@@ -32,8 +32,11 @@ services:
       - /dev/dri:/dev/dri:rw
       - ../ORB-SLAM3/src:/overlay_ws/src/photo_slam/ORB-SLAM3/src:rw
       - ../ORB-SLAM3/include:/overlay_ws/src/photo_slam/ORB-SLAM3/include:rw
+      - ../ORB-SLAM3/CMakeLists.txt:/overlay_ws/src/photo_slam/ORB-SLAM3/CMakeLists.txt:rw
       - ../include:/overlay_ws/src/photo_slam/include:rw
       - ../src:/overlay_ws/src/photo_slam/src:rw
+      - ../launch:/overlay_ws/src/photo_slam/launch:rw
+      - ../cfg:/overlay_ws/src/photo_slam/cfg:rw
       - ../CMakeLists.txt:/overlay_ws/src/photo_slam/CMakeLists.txt:rw
       - ../package.xml:/overlay_ws/src/photo_slam/package.xml:rw
 

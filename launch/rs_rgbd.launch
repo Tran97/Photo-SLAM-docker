@@ -2,26 +2,31 @@
     <param name="use_sim_time" value="false" />
 
     <!-- Main node -->
-    <node name="orb_slam3" pkg="orb_slam3_ros" type="ros_rgbd" output="screen" launch-prefix="gdb --ex=run --args">
+    <node name="photo_slam_rgbd" pkg="photo_slam" type="ros_rgbd" output="screen" launch-prefix="gdb --ex=run --args">
         <!-- change the topics according to the dataset -->
         <remap from="/camera/rgb/image_raw" to="/camera/color/image_raw"/>
         <remap from="/camera/depth_registered/image_raw" to="/camera/depth/image_rect_raw"/>
 
         <!-- Parameters for original ORB-SLAM3 -->
-        <param name="voc_file" type="string" value="$(find orb_slam3_ros)/orb_slam3/Vocabulary/ORBvoc.txt.bin"/>
-        <param name="settings_file" type="string" value="$(find orb_slam3_ros)/config/RGB-D/RealSense_D455.yaml"/>
-        <param name="load_atlas_from_file" type="string" value="$(find orb_slam3_ros)/maps/tum_rosservice.osa"/>
+        <param name="voc_file" type="string" value="$(find photo_slam)/ORB-SLAM3/Vocabulary/ORBvoc.txt.bin"/>
+        <param name="settings_file" type="string" value="$(find photo_slam)/cfg/ORB_SLAM3/RGB-D/RealCamera/realsense_d455_rgbd.yaml"/>
+
+        <param name="output_directory" type="string" value="$(find photo_slam)/out/"/>
+        <param name="gaussian_config_path" type="string" value="$(find photo_slam)/cfg/gaussian_mapper/RealCamera//realsense_rgbd.yaml"/>
+
+        <param name="load_atlas_from_file" type="string" value="$(find photo_slam)/maps/tum_rosservice.osa"/>
         <!-- Parameters for ROS -->
         <param name="world_frame_id" type="string" value="world" />
         <param name="cam_frame_id" type="string" value="camera" />
         <param name="enable_pangolin" type="bool" value="true" />
+        <param name="enable_gaussian_viewer" type="bool" value="false" />
     </node>
 
     <!-- Visualization -->
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find orb_slam3_ros)/config/orb_slam3_rgbd.rviz" output="screen" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find photo_slam)/cfg/photo_slam_rgbd.rviz" output="screen" />
 
     <!-- Trajectory path -->
-    <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="trajectory_server_orb_slam3" output="screen" ns="orb_slam3_ros">
+    <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="trajectory_server_photo_slam" output="screen" ns="photo_slam">
         <param name="/target_frame_name" value="/world" />
         <param name="/source_frame_name" value="/camera" />
         <param name="/trajectory_update_rate" value="20.0" />

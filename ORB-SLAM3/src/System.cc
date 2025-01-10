@@ -233,6 +233,8 @@ System::System(const string &strVocFile, const string &strSettingsFile,
 
   // Fix verbosity
   Verbose::SetTh(Verbose::VERBOSITY_QUIET);
+
+  std::cout << "finished initializing orb slam" << std::endl;
 }
 
 Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight,
